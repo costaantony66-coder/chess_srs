@@ -1,0 +1,86 @@
+@import "tailwindcss";
+@import "chessground/assets/chessground.base.css";
+@import "chessground/assets/chessground.cburnett.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---------- Design tokens ---------- */
+:root {
+  --bg: #eef1f5;
+  --surface: #ffffff;
+  --surface-2: #e4e9f0;
+  --fg: #14181f;
+  --muted: #5f6b7a;
+  --border: #d5dce6;
+  --accent: #3b5bdb;
+  --accent-fg: #ffffff;
+  --good: #1f9d55;
+  --bad: #d63b3b;
+  --warn: #d98a0b;
+  --sq-light: #dfe6ee;
+  --sq-dark: #7e94b0;
+}
+.dark {
+  --bg: #0d1117;
+  --surface: #151b24;
+  --surface-2: #1d2531;
+  --fg: #e8ecf2;
+  --muted: #8794a6;
+  --border: #263040;
+  --accent: #7c9cff;
+  --accent-fg: #0d1117;
+  --good: #3ecf7a;
+  --bad: #ff6b6b;
+  --warn: #ffb84d;
+  --sq-light: #aab7c9;
+  --sq-dark: #4f6482;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-good: var(--good);
+  --color-bad: var(--bad);
+  --color-warn: var(--warn);
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+}
+
+html, body, #root { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---------- Échiquier (chessground) ---------- */
+.cg-wrap cg-board {
+  background: repeating-conic-gradient(var(--sq-dark) 0% 25%, var(--sq-light) 0% 50%) 0 0 / 25% 25%;
+  border-radius: 12px;
+}
+.cg-wrap coords { color: var(--sq-dark); font-weight: 600; font-size: 10px; }
+.cg-wrap coords.ranks { right: 2px; }
+.cg-wrap square.last-move { background-color: color-mix(in srgb, var(--warn) 45%, transparent); }
+.cg-wrap square.selected { background-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.cg-wrap square.check {
+  background: radial-gradient(ellipse at center, var(--bad) 0%, color-mix(in srgb, var(--bad) 60%, transparent) 30%, transparent 75%);
+}
+.cg-wrap square.move-dest {
+  background: radial-gradient(circle, color-mix(in srgb, var(--fg) 35%, transparent) 20%, transparent 22%);
+}
+.cg-wrap square.move-dest.oc {
+  background: radial-gradient(circle, transparent 60%, color-mix(in srgb, var(--fg) 35%, transparent) 62%);
+}
+.cg-wrap square.move-dest:hover { background-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
