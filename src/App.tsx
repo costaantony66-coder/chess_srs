@@ -4,6 +4,7 @@ import { BarChart3, Brain, Crown, GitBranch, Puzzle, type LucideIcon } from 'luc
 import { ThemeToggle } from './components/ui/ThemeToggle';
 import { ComingSoon } from './components/ComingSoon';
 import { Playground } from './features/playground/Playground';
+import { ReviewSession } from './features/review/ReviewSession';
 import { useTheme } from './hooks/useTheme';
 
 type TabId = 'board' | 'review' | 'puzzles' | 'openings' | 'stats';
@@ -21,7 +22,7 @@ function View({ tab }: { tab: TabId }) {
     case 'board':
       return <Playground />;
     case 'review':
-      return <ComingSoon title="Révision du jour" phase={2} text="Les cartes dues, planifiées par FSRS." />;
+      return <ReviewSession />;
     case 'puzzles':
       return <ComingSoon title="Puzzles" phase={3} text="Tactiques Lichess par thème et par niveau." />;
     case 'openings':
@@ -32,7 +33,7 @@ function View({ tab }: { tab: TabId }) {
 }
 
 export function App() {
-  const [tab, setTab] = useState<TabId>('board');
+  const [tab, setTab] = useState<TabId>('review');
   const { theme, toggle } = useTheme();
 
   return (
