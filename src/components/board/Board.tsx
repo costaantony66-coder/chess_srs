@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Chessground } from 'chessground';
 import type { Api } from 'chessground/api';
+import type { DrawShape } from 'chessground/draw';
 import type { Key } from 'chessground/types';
 import { Chess, SQUARES } from 'chess.js';
 
@@ -16,6 +17,10 @@ type Props = {
   viewOnly?: boolean;
   /** Flash de couleur par-dessus l'échiquier (changer `id` pour le rejouer). */
   feedback?: Feedback | null;
+  /** Flèches / cercles (indice, solution). À mémoïser côté appelant. */
+  shapes?: DrawShape[];
+  /** Incrémenter pour forcer la remise de l'échiquier sur `fen` (ex. coup refusé). */
+  syncKey?: number;
   className?: string;
 };
 
@@ -30,7 +35,17 @@ function toDests(chess: Chess): Map<Key, Key[]> {
 
 const FLASH = { good: 'var(--good)', bad: 'var(--bad)', warn: 'var(--warn)' } as const;
 
-export function Board({ fen, orientation = 'white', lastMove, onMove, viewOnly = false, feedback, className }: Props) {
+export function Board({
+  fen,
+  orientation = 'white',
+  lastMove,
+  onMove,
+  viewOnly = false,
+  feedback,
+  shapes,
+  syncKey = 0,
+  className,
+}: Props) {
   const el = useRef<HTMLDivElement>(null);
   const api = useRef<Api | null>(null);
   const onMoveRef = useRef(onMove);
@@ -65,7 +80,8 @@ export function Board({ fen, orientation = 'white', lastMove, onMove, viewOnly =
       },
       draggable: { showGhost: true },
     });
-  }, [fen, orientation, lastMove, viewOnly]);
+    api.current?.setAutoShapes(shapes ?? []);
+  }, [fen, orientation, lastMove, viewOnly, shapes, syncKey]);
 
   return (
     <div className={`relative ${className ?? ''}`}>
