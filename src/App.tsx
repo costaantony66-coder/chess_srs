@@ -4,6 +4,7 @@ import { BarChart3, Brain, Crown, GitBranch, Puzzle, type LucideIcon } from 'luc
 import { ThemeToggle } from './components/ui/ThemeToggle';
 import { ComingSoon } from './components/ComingSoon';
 import { Playground } from './features/playground/Playground';
+import { PuzzleImporter } from './features/puzzles/PuzzleImporter';
 import { ReviewSession } from './features/review/ReviewSession';
 import { useTheme } from './hooks/useTheme';
 
@@ -17,14 +18,14 @@ const TABS: { id: TabId; label: string; icon: LucideIcon }[] = [
   { id: 'stats', label: 'Stats', icon: BarChart3 },
 ];
 
-function View({ tab }: { tab: TabId }) {
+function View({ tab, goReview }: { tab: TabId; goReview: () => void }) {
   switch (tab) {
     case 'board':
       return <Playground />;
     case 'review':
       return <ReviewSession />;
     case 'puzzles':
-      return <ComingSoon title="Puzzles" phase={3} text="Tactiques Lichess par thème et par niveau." />;
+      return <PuzzleImporter onGoReview={goReview} />;
     case 'openings':
       return <ComingSoon title="Répertoire" phase={4} text="Ton arbre de variantes, côté blancs et noirs." />;
     case 'stats':
@@ -52,7 +53,7 @@ export function App() {
             exit={{ opacity: 0, x: -16 }}
             transition={{ duration: 0.16 }}
           >
-            <View tab={tab} />
+            <View tab={tab} goReview={() => setTab('review')} />
           </motion.div>
         </AnimatePresence>
       </main>

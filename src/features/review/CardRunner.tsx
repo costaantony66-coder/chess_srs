@@ -9,6 +9,7 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { RatingButtons } from '../../components/ui/RatingButtons';
 import type { StoredCard } from '../../db/db';
+import { themeLabel } from '../../data/themes';
 import { previewIntervals, type RatingId } from '../../lib/fsrs';
 
 type Phase = 'playing' | 'busy' | 'wrong' | 'solved';
@@ -29,7 +30,9 @@ export function CardRunner({ card, onRate }: Props) {
   const [fen, setFen] = useState(card.fen);
   const [idx, setIdx] = useState(0);
   const [phase, setPhase] = useState<Phase>('playing');
-  const [lastMove, setLastMove] = useState<[string, string] | undefined>();
+  const [lastMove, setLastMove] = useState<[string, string] | undefined>(() =>
+    card.lastMove ? [card.lastMove.slice(0, 2), card.lastMove.slice(2, 4)] : undefined,
+  );
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [syncKey, setSyncKey] = useState(0);
   const [hint, setHint] = useState(false);
@@ -62,7 +65,8 @@ export function CardRunner({ card, onRate }: Props) {
     if (phase !== 'playing') return;
     let move: Move;
     try {
-      move = chess.current.move({ from, to, promotion: 'q' });
+      const promotion = expected && expected.slice(0, 4) === from + to ? expected[4] : 'q';
+      move = chess.current.move({ from, to, promotion });
     } catch {
       return;
     }
@@ -121,7 +125,9 @@ export function CardRunner({ card, onRate }: Props) {
       <div className="flex flex-col gap-3">
         <Card>
           <p className="text-sm text-muted">
-            {TYPE_LABEL[card.type]} · {card.tags.join(', ')}
+            {TYPE_LABEL[card.type]}
+            {card.tags.length > 0 && ` · ${card.tags.slice(0, 4).map(themeLabel).join(', ')}`}
+            {card.rating ? ` · Elo ${card.rating}` : ''}
           </p>
           <h2 className="mt-1 font-display text-xl">{card.title}</h2>
           <p className="mt-1 text-sm text-muted">Trait aux {orientation === 'white' ? 'blancs' : 'noirs'}</p>

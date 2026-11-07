@@ -7,6 +7,7 @@ import { seedDeck } from '../../data/seed';
 import type { StoredCard } from '../../db/db';
 import { applyReview, loadQueue, type QueueState } from '../../db/queue';
 import { formatDelay, type RatingId } from '../../lib/fsrs';
+import { getNewPerDay, setNewPerDay } from '../../lib/settings';
 import { Backup } from './Backup';
 import { CardRunner } from './CardRunner';
 
@@ -22,6 +23,7 @@ function Counter({ label, value, tone }: { label: string; value: number; tone: s
 export function ReviewSession() {
   const [queue, setQueue] = useState<QueueState | null>(null);
   const [runKey, setRunKey] = useState(0);
+  const [perDay, setPerDay] = useState(getNewPerDay);
 
   const refresh = useCallback(async (excludeId?: string) => {
     setQueue(await loadQueue(new Date(), excludeId));
@@ -40,6 +42,13 @@ export function ReviewSession() {
   const loadDemo = async () => {
     await seedDeck();
     await refresh();
+  };
+
+  const changePerDay = (delta: number) => {
+    const n = Math.max(0, Math.min(100, perDay + delta));
+    setNewPerDay(n);
+    setPerDay(n);
+    void refresh();
   };
 
   if (!queue) return null;
@@ -75,6 +84,19 @@ export function ReviewSession() {
           </p>
         </Card>
       )}
+
+      <Card className="mt-6 flex items-center justify-between gap-3">
+        <p className="text-sm">Nouvelles cartes par jour</p>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => changePerDay(-5)} disabled={perDay <= 0} aria-label="Moins" className="w-11 px-0">
+            −
+          </Button>
+          <span className="w-8 text-center font-semibold">{perDay}</span>
+          <Button onClick={() => changePerDay(5)} disabled={perDay >= 100} aria-label="Plus" className="w-11 px-0">
+            +
+          </Button>
+        </div>
+      </Card>
 
       <Backup onImported={() => void refresh()} />
     </div>
