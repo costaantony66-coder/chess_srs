@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Play, Plus, Trash2 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { createRepertoire, deleteRepertoire, listRepertoires, type RepertoireSummary } from '../../db/repertoire';
 import { RepertoireEditor } from './RepertoireEditor';
+import { TrainingSession } from './TrainingSession';
 
 export function OpeningsPage({ onGoReview }: { onGoReview: () => void }) {
   const [openId, setOpenId] = useState<string | null>(null);
+  const [mode, setMode] = useState<'edit' | 'train'>('edit');
   const [list, setList] = useState<RepertoireSummary[] | null>(null);
   const [name, setName] = useState('');
   const [color, setColor] = useState<'white' | 'black'>('white');
@@ -17,13 +19,15 @@ export function OpeningsPage({ onGoReview }: { onGoReview: () => void }) {
     if (!openId) void refresh();
   }, [openId, refresh]);
 
-  if (openId) return <RepertoireEditor repId={openId} onBack={() => setOpenId(null)} onGoReview={onGoReview} />;
+  if (openId && mode === 'train') return <TrainingSession repId={openId} onBack={() => setOpenId(null)} />;
+  if (openId) return <RepertoireEditor repId={openId} onBack={() => setOpenId(null)} onGoReview={onGoReview} onTrain={() => setMode('train')} />;
   if (!list) return null;
 
   const create = async () => {
     const rep = await createRepertoire(name, color);
     setName('');
     setCreating(false);
+    setMode('edit');
     setOpenId(rep.id);
   };
 
@@ -47,13 +51,22 @@ export function OpeningsPage({ onGoReview }: { onGoReview: () => void }) {
 
       {list.map((s) => (
         <Card key={s.rep.id} className="flex items-center gap-3">
-          <button className="min-w-0 flex-1 text-left" onClick={() => setOpenId(s.rep.id)}>
+          <button className="min-w-0 flex-1 text-left" onClick={() => (setMode('edit'), setOpenId(s.rep.id))}>
             <p className="truncate font-display text-lg">{s.rep.name}</p>
             <p className="text-sm text-muted">
               {s.rep.color === 'white' ? 'Blancs' : 'Noirs'} · {s.moves} coups · {s.cards} cartes
               {s.due > 0 && <span className="text-warn"> · {s.due} à revoir</span>}
             </p>
           </button>
+          <Button
+            variant="primary"
+            disabled={s.moves === 0}
+            onClick={() => (setMode('train'), setOpenId(s.rep.id))}
+            aria-label="S’entraîner"
+            className="w-11 px-0"
+          >
+            <Play size={16} />
+          </Button>
           <Button variant="bad" onClick={() => void remove(s)} aria-label="Supprimer" className="w-11 px-0">
             <Trash2 size={16} />
           </Button>

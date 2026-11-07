@@ -8,7 +8,13 @@ export interface Theme {
 
 export const THEMES: Theme[] = themes;
 
-const EXTRA: Record<string, string> = { opening: 'Ouverture', middlegame: 'Milieu de partie' };
+const EXTRA: Record<string, string> = {
+  opening: 'Ouverture',
+  middlegame: 'Milieu de partie',
+  inaccuracy: 'Imprécision',
+  mistake: 'Erreur',
+  blunder: 'Gaffe',
+};
 const LABELS = new Map<string, string>([...THEMES.map((t) => [t.key, t.label] as const), ...Object.entries(EXTRA)]);
 
 export const themeLabel = (key: string) => LABELS.get(key) ?? key;

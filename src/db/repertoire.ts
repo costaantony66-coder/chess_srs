@@ -2,11 +2,13 @@ import { Chess } from 'chess.js';
 import { db, makeCard, type NewCardInput, type RepNode, type Repertoire, type StoredCard } from './db';
 import { parsePgn, type PgnNode } from '../lib/pgn';
 import { State } from 'ts-fsrs';
+import { applyReview } from './queue';
 
 export const ROOT = 'root';
 export const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
 const posKey = (fen: string) => fen.split(' ').slice(0, 4).join(' ');
+export const cardIdFor = (repId: string, fenBefore: string) => `rep:${repId}:${posKey(fenBefore)}`;
 
 /** Mise en forme d'une ligne : "1.e4 e5 2.Nf3". */
 export function formatLine(nodes: RepNode[]): string {
@@ -202,9 +204,9 @@ export async function syncCards(repId: string) {
   }
 
   const wanted = new Map<string, NewCardInput & { id: string }>();
-  for (const [key, group] of groups) {
+  for (const group of groups.values()) {
     const main = group[0];
-    const id = `rep:${repId}:${key}`;
+    const id = cardIdFor(repId, main.fenBefore);
     wanted.set(id, {
       id,
       type: 'opening',
@@ -265,4 +267,27 @@ export async function listRepertoires(): Promise<RepertoireSummary[]> {
       };
     }),
   );
+}
+
+// ---------- Entraînement ----------
+
+/**
+ * Met à jour la carte FSRS de la position jouée pendant l'entraînement.
+ * Une erreur compte toujours (Again). Une réussite n'est comptée que si la carte est nouvelle, en
+ * apprentissage et échue, ou à revoir aujourd'hui : rejouer la même ligne ne gonfle pas les intervalles.
+ */
+export async function recordTraining(repId: string, node: RepNode, outcome: 'good' | 'hint' | 'wrong') {
+  const card = await db.cards.get(cardIdFor(repId, node.fenBefore));
+  if (!card) return;
+  if (outcome === 'wrong') return applyReview(card, 'again', { durationMs: 0, correct: false });
+  const now = Date.now();
+  const endOfDay = new Date();
+  endOfDay.setHours(23, 59, 59, 999);
+  const counts =
+    card.state === State.New ||
+    (card.state === State.Review && card.due <= endOfDay.getTime()) ||
+    (card.state !== State.Review && card.due <= now);
+  if (counts) {
+    await applyReview(card, outcome === 'hint' ? 'hard' : 'good', { durationMs: 0, correct: true });
+  }
 }
