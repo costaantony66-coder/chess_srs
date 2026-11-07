@@ -24,6 +24,7 @@ src/
   features/playground/   # échiquier libre (phase 1)
   features/review/       # session de révision : carte, notes, sauvegarde (phase 2)
   db/                    # Dexie : cartes, journal de révisions, file du jour, export/import
+  features/openings/     # répertoires : arbre de variantes, éditeur, import PGN (phase 4)
   features/puzzles/      # import de puzzles par thème et Elo (phase 3)
   lib/fsrs.ts            # planificateur ts-fsrs
   data/seed.ts           # cartes de démo
@@ -31,6 +32,13 @@ src/
   index.css              # tokens (clair/sombre), thème de l'échiquier
 .github/workflows/       # déploiement GitHub Pages
 ```
+
+## Répertoire d'ouvertures
+
+Un répertoire = une ouverture + une couleur. On le construit en jouant les coups sur l'échiquier ou en important un
+PGN (variantes et commentaires pris en charge). Une carte est créée pour chaque position où c'est à toi de jouer ;
+les variantes à ce même point sont toutes acceptées. Modifier le répertoire met les cartes à jour sans toucher à leur
+planification FSRS.
 
 ## Puzzles Lichess
 
@@ -49,7 +57,7 @@ Push sur `main` → GitHub Actions build et publie sur GitHub Pages
 - [x] 1. Structure, échiquier jouable, design system
 - [x] 2. Cartes + FSRS + file de révision
 - [x] 3. Puzzles Lichess par thème
-- [ ] 4. Éditeur de répertoire d'ouvertures
+- [x] 4. Éditeur de répertoire d'ouvertures
 - [ ] 5. Import de parties → cartes d'erreurs
 - [ ] 6. Stats, Stockfish, PWA
 

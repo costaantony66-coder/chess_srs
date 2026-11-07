@@ -1,16 +1,31 @@
-import { db, type ReviewLog, type StoredCard } from './db';
+import { db, type RepNode, type Repertoire, type ReviewLog, type StoredCard } from './db';
 
 interface BackupFile {
   app: 'chess-srs';
-  version: 1;
+  version: 1 | 2;
   exportedAt: string;
   cards: StoredCard[];
   reviews: ReviewLog[];
+  repertoires?: Repertoire[];
+  repnodes?: RepNode[];
 }
 
 export async function exportData() {
-  const [cards, reviews] = await Promise.all([db.cards.toArray(), db.reviews.toArray()]);
-  const file: BackupFile = { app: 'chess-srs', version: 1, exportedAt: new Date().toISOString(), cards, reviews };
+  const [cards, reviews, repertoires, repnodes] = await Promise.all([
+    db.cards.toArray(),
+    db.reviews.toArray(),
+    db.repertoires.toArray(),
+    db.repnodes.toArray(),
+  ]);
+  const file: BackupFile = {
+    app: 'chess-srs',
+    version: 2,
+    exportedAt: new Date().toISOString(),
+    cards,
+    reviews,
+    repertoires,
+    repnodes,
+  };
   const url = URL.createObjectURL(new Blob([JSON.stringify(file)], { type: 'application/json' }));
   const a = document.createElement('a');
   a.href = url;
@@ -33,9 +48,11 @@ export async function importData(file: File): Promise<number> {
       last_review: c.fsrs.last_review ? new Date(c.fsrs.last_review) : undefined,
     },
   }));
-  await db.transaction('rw', db.cards, db.reviews, async () => {
+  await db.transaction('rw', db.cards, db.reviews, db.repertoires, db.repnodes, async () => {
     await db.cards.bulkPut(cards);
     await db.reviews.bulkPut(data.reviews);
+    if (data.repertoires) await db.repertoires.bulkPut(data.repertoires);
+    if (data.repnodes) await db.repnodes.bulkPut(data.repnodes);
   });
   return cards.length;
 }

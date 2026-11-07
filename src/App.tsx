@@ -4,6 +4,7 @@ import { BarChart3, Brain, Crown, GitBranch, Puzzle, type LucideIcon } from 'luc
 import { ThemeToggle } from './components/ui/ThemeToggle';
 import { ComingSoon } from './components/ComingSoon';
 import { Playground } from './features/playground/Playground';
+import { OpeningsPage } from './features/openings/OpeningsPage';
 import { PuzzleImporter } from './features/puzzles/PuzzleImporter';
 import { ReviewSession } from './features/review/ReviewSession';
 import { useTheme } from './hooks/useTheme';
@@ -27,7 +28,7 @@ function View({ tab, goReview }: { tab: TabId; goReview: () => void }) {
     case 'puzzles':
       return <PuzzleImporter onGoReview={goReview} />;
     case 'openings':
-      return <ComingSoon title="Répertoire" phase={4} text="Ton arbre de variantes, côté blancs et noirs." />;
+      return <OpeningsPage onGoReview={goReview} />;
     case 'stats':
       return <ComingSoon title="Statistiques" phase={6} text="Streak, heatmap de révisions, courbe de rétention." />;
   }

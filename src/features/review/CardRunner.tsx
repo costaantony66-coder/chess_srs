@@ -72,7 +72,8 @@ export function CardRunner({ card, onRate }: Props) {
     }
     const mate = move.san.endsWith('#');
 
-    if (uciOf(move) !== expected && !mate) {
+    const accepted = uciOf(move) === expected || mate || (idx === 0 && !!card.alts?.includes(uciOf(move)));
+    if (!accepted) {
       chess.current.undo();
       setFeedback({ kind: 'bad', id: Date.now() });
       setSyncKey((k) => k + 1);
@@ -131,6 +132,12 @@ export function CardRunner({ card, onRate }: Props) {
           </p>
           <h2 className="mt-1 font-display text-xl">{card.title}</h2>
           <p className="mt-1 text-sm text-muted">Trait aux {orientation === 'white' ? 'blancs' : 'noirs'}</p>
+          {card.type === 'opening' && card.source === 'repertoire' && (
+            <p className="mt-2 font-mono text-sm">{card.line || 'Position de départ'}</p>
+          )}
+          {card.note && (phase === 'wrong' || phase === 'solved') && (
+            <p className="mt-2 text-sm text-muted">{card.note}</p>
+          )}
         </Card>
 
         <AnimatePresence mode="wait" initial={false}>
