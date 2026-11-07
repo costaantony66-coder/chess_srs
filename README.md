@@ -25,6 +25,7 @@ src/
   features/review/       # session de révision : carte, notes, sauvegarde (phase 2)
   db/                    # Dexie : cartes, journal de révisions, file du jour, export/import
   features/openings/     # répertoires : arbre de variantes, éditeur, import PGN (phase 4)
+  features/games/        # import Lichess / Chess.com / PGN, visionneuse, cartes d'erreurs (phase 5)
   features/puzzles/      # import de puzzles par thème et Elo (phase 3)
   lib/fsrs.ts            # planificateur ts-fsrs
   data/seed.ts           # cartes de démo
@@ -39,6 +40,19 @@ Un répertoire = une ouverture + une couleur. On le construit en jouant les coup
 PGN (variantes et commentaires pris en charge). Une carte est créée pour chaque position où c'est à toi de jouer ;
 les variantes à ce même point sont toutes acceptées. Modifier le répertoire met les cartes à jour sans toucher à leur
 planification FSRS.
+
+### Entraînement
+
+Depuis un répertoire, le bouton ▶ lance une partie d'entraînement : l'adversaire joue seul, au hasard parmi les
+réponses de ton arbre ; tu dois trouver ton coup. Chaque position met à jour la carte FSRS (erreur = Again ;
+réussite comptée seulement si la carte est nouvelle, en apprentissage échue ou due aujourd'hui).
+
+## Parties et erreurs
+
+Onglet Parties : import depuis Lichess (API, parties déjà analysées), Chess.com (API publique, sans analyse) ou PGN
+(export Lichess avec analyse). Chaque erreur de ton camp (gaffe, erreur, imprécision au choix) devient une carte
+« position avant l'erreur → meilleur coup ». Les parties sans analyse se corrigent à la main dans la visionneuse
+(l'analyse automatique viendra avec Stockfish, phase 6).
 
 ## Puzzles Lichess
 
@@ -58,7 +72,7 @@ Push sur `main` → GitHub Actions build et publie sur GitHub Pages
 - [x] 2. Cartes + FSRS + file de révision
 - [x] 3. Puzzles Lichess par thème
 - [x] 4. Éditeur de répertoire d'ouvertures
-- [ ] 5. Import de parties → cartes d'erreurs
+- [x] 5. Import de parties → cartes d'erreurs, entraînement d'ouvertures
 - [ ] 6. Stats, Stockfish, PWA
 
 ## Workflow Git

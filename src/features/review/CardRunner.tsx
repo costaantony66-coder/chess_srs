@@ -14,7 +14,7 @@ import { previewIntervals, type RatingId } from '../../lib/fsrs';
 
 type Phase = 'playing' | 'busy' | 'wrong' | 'solved';
 
-const TYPE_LABEL = { tactic: 'Tactique', opening: 'Ouverture', endgame: 'Finale' } as const;
+const TYPE_LABEL = { tactic: 'Tactique', opening: 'Ouverture', endgame: 'Finale', mistake: 'Erreur de partie' } as const;
 const uciOf = (m: Move) => m.from + m.to + (m.promotion ?? '');
 
 type Props = {

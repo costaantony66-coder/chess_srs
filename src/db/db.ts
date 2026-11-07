@@ -2,7 +2,7 @@ import Dexie, { type Table } from 'dexie';
 import type { Card as FsrsCard } from 'ts-fsrs';
 import { newFsrsCard } from '../lib/fsrs';
 
-export type CardType = 'tactic' | 'opening' | 'endgame';
+export type CardType = 'tactic' | 'opening' | 'endgame' | 'mistake';
 
 export interface StoredCard {
   id: string;
@@ -17,13 +17,15 @@ export interface StoredCard {
   rating?: number;
   /** Dernier coup de l'adversaire (UCI), pour le surligner au départ. */
   lastMove?: string;
-  source?: 'demo' | 'lichess' | 'repertoire';
+  source?: 'demo' | 'lichess' | 'repertoire' | 'game';
   /** Autres premiers coups acceptés (répertoire). */
   alts?: string[];
   /** Coups joués avant la position, en SAN (répertoire). */
   line?: string;
   note?: string;
   repId?: string;
+  /** Partie d'origine (cartes d'erreurs). */
+  gameId?: string;
   createdAt: number;
   /** Copies à plat de fsrs.due / fsrs.state, pour les index. */
   due: number;
@@ -53,6 +55,22 @@ export interface RepNode {
   comment?: string;
 }
 
+export interface Game {
+  id: string;
+  source: 'lichess' | 'chesscom' | 'pgn';
+  white: string;
+  black: string;
+  myColor: 'white' | 'black';
+  result: string;
+  playedAt?: number;
+  opening?: string;
+  /** Coups en SAN, séparés par des espaces. */
+  moves: string;
+  /** Une analyse (évaluations) était disponible à l'import. */
+  analysed: boolean;
+  importedAt: number;
+}
+
 export interface ReviewLog {
   id?: number;
   cardId: string;
@@ -70,6 +88,7 @@ class ChessDB extends Dexie {
   reviews!: Table<ReviewLog, number>;
   repertoires!: Table<Repertoire, string>;
   repnodes!: Table<RepNode, string>;
+  games!: Table<Game, string>;
 
   constructor() {
     super('chess-srs');
@@ -87,13 +106,20 @@ class ChessDB extends Dexie {
       repertoires: 'id, createdAt',
       repnodes: 'id, repId, [repId+parentId]',
     });
+    this.version(4).stores({
+      cards: 'id, type, due, state, createdAt, rating, repId, gameId, *tags',
+      reviews: '++id, cardId, ts',
+      repertoires: 'id, createdAt',
+      repnodes: 'id, repId, [repId+parentId]',
+      games: 'id, source, importedAt',
+    });
   }
 }
 
 export const db = new ChessDB();
 
 export type NewCardInput = Pick<StoredCard, 'type' | 'title' | 'fen' | 'solution' | 'tags'> &
-  Partial<Pick<StoredCard, 'rating' | 'lastMove' | 'source' | 'alts' | 'line' | 'note' | 'repId'>> & { id?: string };
+  Partial<Pick<StoredCard, 'rating' | 'lastMove' | 'source' | 'alts' | 'line' | 'note' | 'repId' | 'gameId'>> & { id?: string };
 
 export function makeCard(input: NewCardInput): StoredCard {
   const now = new Date();

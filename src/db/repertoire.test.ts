@@ -69,3 +69,26 @@ describe('répertoire', () => {
     expect(await db.repnodes.count()).toBe(0);
   });
 });
+
+describe('entraînement', () => {
+  it('une erreur compte (Again), une réussite compte une fois puis n’alourdit plus la carte', async () => {
+    const { recordTraining } = await import('./repertoire');
+    const rep = await createRepertoire('Italienne', 'white');
+    await importPgn(rep.id, '1. e4 e5 2. Nf3');
+    const nodes = await loadNodes(rep.id);
+    const e4 = nodes.find((n) => n.san === 'e4')!;
+    const id = `rep:${rep.id}:${e4.fenBefore.split(' ').slice(0, 4).join(' ')}`;
+
+    await recordTraining(rep.id, e4, 'good');
+    const afterGood = (await db.cards.get(id))!;
+    expect(afterGood.fsrs.reps).toBe(1);
+
+    await recordTraining(rep.id, e4, 'good'); // plus due aujourd'hui : ignoré
+    expect((await db.cards.get(id))!.fsrs.reps).toBe(1);
+
+    await recordTraining(rep.id, e4, 'wrong');
+    const afterWrong = (await db.cards.get(id))!;
+    expect(afterWrong.fsrs.reps).toBe(2);
+    expect(afterWrong.fsrs.lapses).toBeGreaterThanOrEqual(0);
+  });
+});

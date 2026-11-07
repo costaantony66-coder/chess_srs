@@ -8,9 +8,9 @@ import { addMove, deleteNode, formatLine, loadNodes, ROOT, setComment, START_FEN
 import { MoveTree } from './MoveTree';
 import { PgnImport } from './PgnImport';
 
-type Props = { repId: string; onBack: () => void; onGoReview: () => void };
+type Props = { repId: string; onBack: () => void; onGoReview: () => void; onTrain: () => void };
 
-export function RepertoireEditor({ repId, onBack, onGoReview }: Props) {
+export function RepertoireEditor({ repId, onBack, onGoReview, onTrain }: Props) {
   const [rep, setRep] = useState<Repertoire | null>(null);
   const [nodes, setNodes] = useState<RepNode[]>([]);
   const [currentId, setCurrentId] = useState(ROOT);
@@ -178,9 +178,14 @@ export function RepertoireEditor({ repId, onBack, onGoReview }: Props) {
             )}
           </Card>
 
-          <Button variant="primary" onClick={onGoReview} disabled={cardCount === 0}>
-            Réviser mes cartes
-          </Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="primary" onClick={onTrain} disabled={nodes.length === 0}>
+              S’entraîner
+            </Button>
+            <Button onClick={onGoReview} disabled={cardCount === 0}>
+              Réviser mes cartes
+            </Button>
+          </div>
         </div>
       </div>
     </div>
