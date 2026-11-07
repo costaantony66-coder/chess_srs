@@ -1,9 +1,10 @@
 import { State } from 'ts-fsrs';
 import { db, type StoredCard } from './db';
+import { inDeck } from '../lib/decks';
 import { schedule, type RatingId } from '../lib/fsrs';
 import { getNewPerDay } from '../lib/settings';
 
-const LEARN_AHEAD_MS = 20 * 60 * 1000;
+export const LEARN_AHEAD_MS = 20 * 60 * 1000;
 
 export interface QueueState {
   cards: StoredCard[];
@@ -13,42 +14,65 @@ export interface QueueState {
   nextDue: number | null;
 }
 
-/** File du jour : apprentissage + révisions dues aujourd'hui, puis nouvelles cartes (plafonnées). */
-export async function loadQueue(now = new Date(), excludeId?: string): Promise<QueueState> {
+export type Bucket = 'new' | 'learning' | 'review';
+
+/** Dans quelle file la carte se trouve-t-elle maintenant (null : pas à étudier) ? */
+export function bucketOf(card: StoredCard, nowMs: number, endOfDayMs: number): Bucket | null {
+  if (card.state === State.New) return 'new';
+  if (card.state === State.Review) return card.due <= endOfDayMs ? 'review' : null;
+  return card.due <= nowMs + LEARN_AHEAD_MS ? 'learning' : null;
+}
+
+export const startOfDay = (d: Date) => {
+  const s = new Date(d);
+  s.setHours(0, 0, 0, 0);
+  return s;
+};
+export const endOfDay = (d: Date) => {
+  const e = new Date(d);
+  e.setHours(23, 59, 59, 999);
+  return e;
+};
+
+/**
+ * File du jour d'un paquet (ou de toute la collection si `deck` est absent) :
+ * apprentissage + révisions dues aujourd'hui, puis nouvelles cartes (plafonnées par paquet et par jour).
+ */
+export async function loadQueue(now = new Date(), excludeId?: string, deck?: string): Promise<QueueState> {
   const nowMs = now.getTime();
-  const startOfDay = new Date(now);
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(now);
-  endOfDay.setHours(23, 59, 59, 999);
+  const endMs = endOfDay(now).getTime();
+  const inScope = (c: StoredCard) => !deck || inDeck(c.deck, deck);
 
-  const [totalCards, today] = await Promise.all([
-    db.cards.count(),
-    db.reviews.where('ts').aboveOrEqual(startOfDay.getTime()).toArray(),
+  const [all, today] = await Promise.all([
+    db.cards.toArray(),
+    db.reviews.where('ts').aboveOrEqual(startOfDay(now).getTime()).toArray(),
   ]);
-  const newToday = today.filter((r) => r.prevState === State.New).length;
+  const scoped = all.filter(inScope);
+  const byId = new Map(all.map((c) => [c.id, c]));
 
-  const due = (
-    await db.cards
-      .where('due')
-      .belowOrEqual(endOfDay.getTime())
-      .filter((c) => c.state !== State.New)
-      .sortBy('due')
-  ).filter((c) => c.state === State.Review || c.due <= nowMs + LEARN_AHEAD_MS);
+  const newToday = today.filter((r) => r.prevState === State.New && byId.has(r.cardId) && inScope(byId.get(r.cardId)!)).length;
+  const doneToday = today.filter((r) => byId.has(r.cardId) && inScope(byId.get(r.cardId)!)).length;
+
+  const due = scoped
+    .filter((c) => {
+      const b = bucketOf(c, nowMs, endMs);
+      return b === 'learning' || b === 'review';
+    })
+    .sort((a, b) => a.due - b.due);
 
   const newLeft = Math.max(0, getNewPerDay() - newToday);
-  const fresh = newLeft
-    ? (await db.cards.where('state').equals(State.New).sortBy('createdAt')).slice(0, newLeft)
-    : [];
+  const fresh = scoped
+    .filter((c) => c.state === State.New)
+    .sort((a, b) => a.createdAt - b.createdAt)
+    .slice(0, newLeft);
 
   const cards = [...due, ...fresh];
   if (excludeId && cards.length > 1 && cards[0].id === excludeId) cards.push(cards.shift()!);
 
   const queued = new Set(cards.map((c) => c.id));
-  const next = await db.cards
-    .where('due')
-    .above(nowMs)
-    .filter((c) => c.state !== State.New && !queued.has(c.id))
-    .first();
+  const next = scoped
+    .filter((c) => c.state !== State.New && c.due > nowMs && !queued.has(c.id))
+    .sort((a, b) => a.due - b.due)[0];
 
   return {
     cards,
@@ -57,8 +81,8 @@ export async function loadQueue(now = new Date(), excludeId?: string): Promise<Q
       learning: due.filter((c) => c.state !== State.Review).length,
       review: due.filter((c) => c.state === State.Review).length,
     },
-    doneToday: today.length,
-    totalCards,
+    doneToday,
+    totalCards: scoped.length,
     nextDue: next?.due ?? null,
   };
 }

@@ -36,6 +36,8 @@ export function CardRunner({ card, onRate }: Props) {
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [syncKey, setSyncKey] = useState(0);
   const [hint, setHint] = useState(false);
+  const [mistakes, setMistakes] = useState(0);
+  const lineMode = !!card.lineMode;
 
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
@@ -61,6 +63,31 @@ export function CardRunner({ card, onRate }: Props) {
     return [];
   }, [expected, phase, hint]);
 
+  const playReply = (next: number) => {
+    setPhase('busy');
+    timer.current = window.setTimeout(() => {
+      const reply = card.solution[next];
+      const rm = chess.current.move({ from: reply.slice(0, 2), to: reply.slice(2, 4), promotion: reply[4] });
+      setFen(chess.current.fen());
+      setLastMove([rm.from, rm.to]);
+      setIdx(next + 1);
+      setPhase(next + 1 >= card.solution.length ? 'solved' : 'playing');
+    }, 450);
+  };
+
+  /** Carte-ligne : après une erreur, on joue le bon coup et la ligne continue. */
+  const continueLine = () => {
+    const exp = card.solution[idx];
+    const mv = chess.current.move({ from: exp.slice(0, 2), to: exp.slice(2, 4), promotion: exp[4] });
+    setFen(chess.current.fen());
+    setLastMove([mv.from, mv.to]);
+    setHint(false);
+    const next = idx + 1;
+    setIdx(next);
+    if (next >= card.solution.length) setPhase('solved');
+    else playReply(next);
+  };
+
   const handleMove = (from: string, to: string) => {
     if (phase !== 'playing') return;
     let move: Move;
@@ -77,6 +104,7 @@ export function CardRunner({ card, onRate }: Props) {
       chess.current.undo();
       setFeedback({ kind: 'bad', id: Date.now() });
       setSyncKey((k) => k + 1);
+      if (lineMode) setMistakes((m) => m + 1);
       setPhase('wrong');
       return;
     }
@@ -91,22 +119,23 @@ export function CardRunner({ card, onRate }: Props) {
       setPhase('solved');
       return;
     }
-    setPhase('busy');
-    timer.current = window.setTimeout(() => {
-      const reply = card.solution[next];
-      const rm = chess.current.move({ from: reply.slice(0, 2), to: reply.slice(2, 4), promotion: reply[4] });
-      setFen(chess.current.fen());
-      setLastMove([rm.from, rm.to]);
-      setIdx(next + 1);
-      setPhase(next + 1 >= card.solution.length ? 'solved' : 'playing');
-    }, 450);
+    playReply(next);
   };
 
   const rate = (r: RatingId) =>
-    onRate(r, { durationMs: Date.now() - startedAt.current, correct: phase === 'solved' });
+    onRate(r, { durationMs: Date.now() - startedAt.current, correct: phase === 'solved' && mistakes === 0 });
 
   const enabled: RatingId[] | undefined =
-    phase === 'wrong' ? ['again'] : phase === 'solved' ? (hint ? ['again', 'hard', 'good'] : undefined) : [];
+    phase === 'wrong'
+      ? ['again']
+      : phase === 'solved'
+        ? mistakes > 0
+          ? ['again']
+          : hint
+            ? ['again', 'hard', 'good']
+            : undefined
+        : [];
+  const userMoves = Math.ceil(card.solution.length / 2);
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,640px)_1fr]">
@@ -131,7 +160,11 @@ export function CardRunner({ card, onRate }: Props) {
             {card.rating ? ` · Elo ${card.rating}` : ''}
           </p>
           <h2 className="mt-1 font-display text-xl">{card.title}</h2>
-          <p className="mt-1 text-sm text-muted">Trait aux {orientation === 'white' ? 'blancs' : 'noirs'}</p>
+          <p className="mt-1 text-sm text-muted">
+            Trait aux {orientation === 'white' ? 'blancs' : 'noirs'}
+            {lineMode && ` · coup ${Math.min(Math.floor(idx / 2) + 1, userMoves)}/${userMoves}`}
+            {lineMode && mistakes > 0 && ` · ${mistakes} erreur${mistakes > 1 ? 's' : ''}`}
+          </p>
           {card.type === 'opening' && card.source === 'repertoire' && (
             <p className="mt-2 font-mono text-sm">{card.line || 'Position de départ'}</p>
           )}
@@ -152,6 +185,7 @@ export function CardRunner({ card, onRate }: Props) {
               <X size={20} className="mt-0.5 shrink-0" />
               <p>
                 Mauvais coup. Le bon coup était <strong>{expectedSan ?? expected}</strong> (flèche verte).
+                {lineMode && ' La ligne continue avec le bon coup.'}
               </p>
             </motion.div>
           )}
@@ -163,7 +197,8 @@ export function CardRunner({ card, onRate }: Props) {
               exit={{ opacity: 0 }}
               className="flex items-center gap-2 rounded-2xl bg-good/15 p-4 text-good"
             >
-              <Check size={20} /> Bien joué. Note ta difficulté.
+              <Check size={20} />
+              {mistakes > 0 ? `Ligne terminée avec ${mistakes} erreur${mistakes > 1 ? 's' : ''} : seul Again est possible.` : 'Bien joué. Note ta difficulté.'}
             </motion.div>
           )}
         </AnimatePresence>
@@ -174,7 +209,13 @@ export function CardRunner({ card, onRate }: Props) {
           </Button>
         )}
 
-        {(phase === 'wrong' || phase === 'solved') && (
+        {phase === 'wrong' && lineMode && (
+          <Button variant="primary" onClick={continueLine}>
+            Continuer la ligne
+          </Button>
+        )}
+
+        {((phase === 'wrong' && !lineMode) || phase === 'solved') && (
           <RatingButtons onRate={rate} enabled={enabled} intervals={intervals} />
         )}
       </div>

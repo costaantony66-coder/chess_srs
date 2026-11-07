@@ -1,5 +1,6 @@
 import { Chess } from 'chess.js';
 import type { NewCardInput } from '../db/db';
+import { deckPath, SOURCE_LABEL } from './decks';
 import { parsePgn } from './pgn';
 
 export type Severity = 'Inaccuracy' | 'Mistake' | 'Blunder';
@@ -250,6 +251,7 @@ export function errorCards(game: ParsedGame, allowed: Set<Severity>): NewCardInp
       note: `Dans ta partie, tu avais joué ${game.moves[e.ply - 1]} (${SEVERITY_LABEL[e.severity].toLowerCase()}).`,
       source: 'game',
       gameId: game.id,
+      deck: deckPath('Parties', SOURCE_LABEL[game.source]),
     });
   }
   return out;

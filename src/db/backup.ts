@@ -1,3 +1,4 @@
+import { legacyDeck } from '../lib/decks';
 import { db, type Game, type RepNode, type Repertoire, type ReviewLog, type StoredCard } from './db';
 
 interface BackupFile {
@@ -45,6 +46,7 @@ export async function importData(file: File): Promise<number> {
   }
   const cards = data.cards.map((c) => ({
     ...c,
+    deck: c.deck ?? legacyDeck(c),
     fsrs: {
       ...c.fsrs,
       due: new Date(c.fsrs.due),

@@ -25,6 +25,7 @@ src/
   features/review/       # session de révision : carte, notes, sauvegarde (phase 2)
   db/                    # Dexie : cartes, journal de révisions, file du jour, export/import
   features/openings/     # répertoires : arbre de variantes, éditeur, import PGN (phase 4)
+  features/stats/        # série, heatmap, courbe de rétention (phase 6A)
   features/games/        # import Lichess / Chess.com / PGN, visionneuse, cartes d'erreurs (phase 5)
   features/puzzles/      # import de puzzles par thème et Elo (phase 3)
   lib/fsrs.ts            # planificateur ts-fsrs
@@ -33,6 +34,19 @@ src/
   index.css              # tokens (clair/sombre), thème de l'échiquier
 .github/workflows/       # déploiement GitHub Pages
 ```
+
+## Paquets (façon Anki)
+
+Chaque carte a un chemin de paquet : `Ouvertures::Système de Londres`, `Puzzles::Fourchette`,
+`Parties::Lichess`, `Finales`, `Démo`. L'onglet Réviser liste les paquets avec leurs compteurs
+(Nouvelles / Apprentissage / À revoir) ; un paquet parent inclut ses sous-paquets. Le plafond de nouvelles cartes par
+jour s'applique au paquet étudié. Les cartes créées avant les paquets sont rangées automatiquement (migration Dexie v5).
+
+## Cartes-lignes
+
+Dans l'éditeur de répertoire, « Jusqu'ici » ou « Toutes les lignes » créent des cartes qui font rejouer une suite de
+coups (réponses adverses automatiques) dans le sous-paquet `…::Lignes`. Après une erreur, la ligne continue ;
+une seule note à la fin, et seul Again si tu t'es trompé.
 
 ## Répertoire d'ouvertures
 
@@ -73,7 +87,8 @@ Push sur `main` → GitHub Actions build et publie sur GitHub Pages
 - [x] 3. Puzzles Lichess par thème
 - [x] 4. Éditeur de répertoire d'ouvertures
 - [x] 5. Import de parties → cartes d'erreurs, entraînement d'ouvertures
-- [ ] 6. Stats, Stockfish, PWA
+- [x] 6A. Paquets façon Anki, cartes-lignes, favoris et suppression groupée, statistiques
+- [ ] 6B. Stockfish (analyse des parties sans analyse), PWA hors ligne, source externe pour l'entraînement
 
 ## Workflow Git
 

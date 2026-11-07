@@ -92,3 +92,47 @@ describe('entraînement', () => {
     expect(afterWrong.fsrs.lapses).toBeGreaterThanOrEqual(0);
   });
 });
+
+describe('cartes-lignes', () => {
+  it('une carte par ligne complète, rangée dans le paquet Lignes, sans doublon', async () => {
+    const { createAllLineCards, createLineCard } = await import('./repertoire');
+    const rep = await createRepertoire('Italienne', 'white');
+    await importPgn(rep.id, '1. e4 e5 2. Nf3 Nc6 3. Bc4 (3. Bb5) 3... Bc5 4. c3');
+    const r = await createAllLineCards(rep.id);
+    expect(r.created).toBe(2); // ...Bc5 4.c3  et  ...Bb5
+    const lines = (await db.cards.where('repId').equals(rep.id).toArray()).filter((c) => c.lineMode);
+    expect(lines).toHaveLength(2);
+    expect(lines.every((c) => c.deck === 'Ouvertures::Italienne::Lignes')).toBe(true);
+    const long = lines.find((c) => c.solution.length === 7)!; // e4 e5 Nf3 Nc6 Bc4 Bc5 c3
+    expect(long.fen).toContain('rnbqkbnr/pppppppp');
+    expect((await createAllLineCards(rep.id)).created).toBe(0);
+
+    const nodes = await loadNodes(rep.id);
+    const nf3 = nodes.find((n) => n.san === 'Nf3')!;
+    expect(await createLineCard(rep.id, nf3.id)).toBe('created'); // e4 … Cf3 : 2 de tes coups
+    expect(await createLineCard(rep.id, nf3.id)).toBe('exists');
+    const e4 = nodes.find((n) => n.san === 'e4')!;
+    expect(await createLineCard(rep.id, e4.id)).toBe('short'); // un seul coup à toi
+  });
+
+  it('noirs : le premier coup blanc sert de départ ; supprimer un coup supprime la ligne ; renommer range sous le nouveau paquet', async () => {
+    const { createAllLineCards, renameRepertoire } = await import('./repertoire');
+    const rep = await createRepertoire('Caro', 'black');
+    await importPgn(rep.id, '1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4');
+    expect((await createAllLineCards(rep.id)).created).toBe(1);
+    const line = (await db.cards.where('repId').equals(rep.id).toArray()).find((c) => c.lineMode)!;
+    expect(line.line).toBe('1.e4');
+    expect(line.lastMove).toBe('e2e4');
+    expect(line.solution[0]).toBe('c7c6');
+    expect(line.fen.split(' ')[1]).toBe('b');
+
+    await renameRepertoire(rep.id, 'Caro-Kann');
+    const renamed = (await db.cards.where('repId').equals(rep.id).toArray()).filter((c) => c.lineMode);
+    expect(renamed[0].deck).toBe('Ouvertures::Caro-Kann::Lignes');
+    expect((await db.cards.where('repId').equals(rep.id).toArray()).find((c) => !c.lineMode)!.deck).toBe('Ouvertures::Caro-Kann');
+
+    const d5 = (await loadNodes(rep.id)).find((n) => n.san === 'd5')!;
+    await deleteNode(d5.id);
+    expect((await db.cards.where('repId').equals(rep.id).toArray()).filter((c) => c.lineMode)).toHaveLength(0);
+  });
+});

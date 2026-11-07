@@ -1,5 +1,6 @@
 import { Chess } from 'chess.js';
 import { db, makeCard, type NewCardInput } from '../db/db';
+import { deckPath } from '../lib/decks';
 import { isKnownTheme, themeLabel } from './themes';
 
 /** [id, FEN avant le coup de l'adversaire, coups UCI (1er = adversaire), Elo, thèmes] */
@@ -35,6 +36,7 @@ export function puzzleToCard(entry: PuzzleEntry, theme: string): NewCardInput | 
       rating,
       lastMove: moves[0],
       source: 'lichess',
+      deck: deckPath('Puzzles', themeLabel(theme)),
     };
   } catch {
     return null;
