@@ -8,7 +8,7 @@ export interface SaveReport {
   unanalysed: number;
 }
 
-const toGame = (g: ParsedGame): Game => ({
+const toGame = (g: ParsedGame, favorite?: boolean): Game => ({
   id: g.id,
   source: g.source,
   white: g.white,
@@ -20,16 +20,18 @@ const toGame = (g: ParsedGame): Game => ({
   moves: g.moves.join(' '),
   analysed: g.analysed,
   importedAt: Date.now(),
+  ...(favorite ? { favorite: true } : {}),
 });
 
 /** Enregistre les parties et crée une carte par erreur retenue (sans doublon). */
 export async function saveParsedGames(parsed: ParsedGame[], allowed: Set<Severity>): Promise<SaveReport> {
-  const known = new Set((await db.games.bulkGet(parsed.map((g) => g.id))).filter(Boolean).map((g) => g!.id));
+  const existing = new Map((await db.games.bulkGet(parsed.map((g) => g.id))).filter(Boolean).map((g) => [g!.id, g!]));
+  const known = new Set(existing.keys());
   const cards = parsed.flatMap((g) => errorCards(g, allowed)).map(makeCard);
   const have = new Set((await db.cards.bulkGet(cards.map((c) => c.id))).filter(Boolean).map((c) => c!.id));
   const fresh = cards.filter((c) => !have.has(c.id));
   await db.transaction('rw', db.games, db.cards, async () => {
-    await db.games.bulkPut(parsed.map(toGame));
+    await db.games.bulkPut(parsed.map((g) => toGame(g, existing.get(g.id)?.favorite)));
     await db.cards.bulkAdd(fresh);
   });
   return {
@@ -69,6 +71,33 @@ export async function saveManualCard(game: Game, ply: number, fen: string, uci: 
     return;
   }
   await db.cards.add(
-    makeCard({ id, type: 'mistake', title: `Erreur · vs ${opponent}`, fen, solution: [uci], tags: ['mistake'], lastMove, note, source: 'game', gameId: game.id }),
+    makeCard({
+      id,
+      type: 'mistake',
+      title: `Erreur · vs ${opponent}`,
+      fen,
+      solution: [uci],
+      tags: ['mistake'],
+      lastMove,
+      note,
+      source: 'game',
+      gameId: game.id,
+      deck: 'Parties::Corrections manuelles',
+    }),
   );
+}
+
+export async function toggleFavorite(id: string) {
+  const g = await db.games.get(id);
+  if (g) await db.games.update(id, { favorite: !g.favorite });
+}
+
+/** Supprime plusieurs parties et leurs cartes d'erreurs. Retourne le nombre de cartes supprimées. */
+export async function deleteGames(ids: string[]): Promise<number> {
+  let cards = 0;
+  await db.transaction('rw', db.games, db.cards, async () => {
+    for (const id of ids) cards += await db.cards.where('gameId').equals(id).delete();
+    await db.games.bulkDelete(ids);
+  });
+  return cards;
 }

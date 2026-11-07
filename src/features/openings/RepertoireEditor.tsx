@@ -1,10 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ChevronLeft, ChevronRight, ChevronsLeft, Trash2 } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, ChevronsLeft, Pencil, Trash2 } from 'lucide-react';
 import { Board } from '../../components/board/Board';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { db, type RepNode, type Repertoire } from '../../db/db';
-import { addMove, deleteNode, formatLine, loadNodes, ROOT, setComment, START_FEN } from '../../db/repertoire';
+import {
+  addMove,
+  createAllLineCards,
+  createLineCard,
+  deleteNode,
+  formatLine,
+  loadNodes,
+  renameRepertoire,
+  ROOT,
+  setComment,
+  START_FEN,
+} from '../../db/repertoire';
 import { MoveTree } from './MoveTree';
 import { PgnImport } from './PgnImport';
 
@@ -18,6 +29,7 @@ export function RepertoireEditor({ repId, onBack, onGoReview, onTrain }: Props) 
   const [note, setNote] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [cardCount, setCardCount] = useState(0);
+  const [lineMsg, setLineMsg] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     setNodes(await loadNodes(repId));
@@ -91,6 +103,37 @@ export function RepertoireEditor({ repId, onBack, onGoReview, onTrain }: Props) 
     await reload();
   };
 
+  const rename = async () => {
+    const name = window.prompt('Nouveau nom du répertoire (et du paquet)', rep.name);
+    if (!name?.trim()) return;
+    await renameRepertoire(repId, name);
+    setRep({ ...rep, name: name.trim() });
+  };
+
+  const lineHere = async () => {
+    if (!current) return;
+    const r = await createLineCard(repId, current.id);
+    setLineMsg(
+      r === 'created'
+        ? 'Carte-ligne créée (paquet « Lignes »).'
+        : r === 'exists'
+          ? 'Cette ligne existe déjà.'
+          : 'Ligne trop courte : il faut au moins 2 de tes coups.',
+    );
+    await reload();
+  };
+
+  const allLines = async () => {
+    const r = await createAllLineCards(repId);
+    setLineMsg(
+      `${r.created} carte${r.created > 1 ? 's' : ''}-ligne${r.created > 1 ? 's' : ''} créée${r.created > 1 ? 's' : ''}` +
+        (r.existing ? `, ${r.existing} existaient déjà` : '') +
+        (r.skipped ? `, ${r.skipped} ligne(s) trop courte(s) ignorée(s)` : '') +
+        '.',
+    );
+    await reload();
+  };
+
   const nextIsMine = (current ? current.ply : 0) % 2 === 0 === (rep.color === 'white');
   const status = nextIsMine
     ? kids.length
@@ -106,12 +149,15 @@ export function RepertoireEditor({ repId, onBack, onGoReview, onTrain }: Props) 
         <Button onClick={onBack} aria-label="Retour" className="w-11 px-0">
           <ArrowLeft size={18} />
         </Button>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h2 className="truncate font-display text-xl">{rep.name}</h2>
           <p className="text-sm text-muted">
             {rep.color === 'white' ? 'Blancs' : 'Noirs'} · {nodes.length} coups · {cardCount} cartes
           </p>
         </div>
+        <Button onClick={() => void rename()} aria-label="Renommer" className="w-11 px-0">
+          <Pencil size={16} />
+        </Button>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,560px)_1fr]">
@@ -165,6 +211,20 @@ export function RepertoireEditor({ repId, onBack, onGoReview, onTrain }: Props) 
             ) : (
               <p className="text-sm text-muted">Vide : joue des coups sur l’échiquier ou importe un PGN.</p>
             )}
+          </Card>
+
+          <Card>
+            <p className="text-sm font-medium">Cartes-lignes (suites de coups)</p>
+            <p className="mt-1 text-sm text-muted">Une carte te fait rejouer toute une ligne ; les réponses adverses sont jouées automatiquement.</p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <Button onClick={() => void lineHere()} disabled={!current}>
+                Jusqu’ici
+              </Button>
+              <Button onClick={() => void allLines()} disabled={nodes.length === 0}>
+                Toutes les lignes
+              </Button>
+            </div>
+            {lineMsg && <p className="mt-2 text-sm">{lineMsg}</p>}
           </Card>
 
           <Card>

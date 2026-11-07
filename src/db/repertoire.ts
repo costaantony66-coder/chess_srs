@@ -3,6 +3,7 @@ import { db, makeCard, type NewCardInput, type RepNode, type Repertoire, type St
 import { parsePgn, type PgnNode } from '../lib/pgn';
 import { State } from 'ts-fsrs';
 import { applyReview } from './queue';
+import { deckPath } from '../lib/decks';
 
 export const ROOT = 'root';
 export const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -203,6 +204,7 @@ export async function syncCards(repId: string) {
     groups.set(key, [...(groups.get(key) ?? []), n]);
   }
 
+  const deck = deckPath('Ouvertures', rep.name);
   const wanted = new Map<string, NewCardInput & { id: string }>();
   for (const group of groups.values()) {
     const main = group[0];
@@ -213,18 +215,25 @@ export async function syncCards(repId: string) {
       title: rep.name,
       fen: main.fenBefore,
       solution: [main.uci],
-      alts: group.slice(1).map((n) => n.uci),
+      alts: [...new Set(group.slice(1).map((n) => n.uci))].filter((u) => u !== main.uci),
       tags: [rep.color === 'white' ? 'blancs' : 'noirs'],
       lastMove: byId.get(main.parentId)?.uci,
       line: formatLine(pathTo(main.parentId)),
       note: main.comment,
       repId,
       source: 'repertoire',
+      deck,
     });
   }
 
   await db.transaction('rw', db.cards, async () => {
-    const existing = new Map((await db.cards.where('repId').equals(repId).toArray()).map((c) => [c.id, c]));
+    const all = await db.cards.where('repId').equals(repId).toArray();
+    const existing = new Map(all.filter((c) => !c.lineMode).map((c) => [c.id, c]));
+    // Cartes-lignes : supprimées si leur dernier coup a disparu, sinon rangées sous le bon paquet.
+    const lines = all.filter((c) => c.lineMode);
+    const deadLines = lines.filter((c) => !c.lineEnd || !byId.has(c.lineEnd)).map((c) => c.id);
+    if (deadLines.length) await db.cards.bulkDelete(deadLines);
+    await db.cards.bulkPut(lines.filter((c) => !deadLines.includes(c.id)).map((c) => ({ ...c, deck: `${deck}::Lignes` })));
     const now = Date.now();
     const toPut: StoredCard[] = [];
     for (const [id, input] of wanted) {
@@ -290,4 +299,79 @@ export async function recordTraining(repId: string, node: RepNode, outcome: 'goo
   if (counts) {
     await applyReview(card, outcome === 'hint' ? 'hard' : 'good', { durationMs: 0, correct: true });
   }
+}
+
+export async function renameRepertoire(repId: string, name: string) {
+  const clean = name.trim();
+  if (!clean) return;
+  await db.repertoires.update(repId, { name: clean });
+  await syncCards(repId);
+}
+
+// ---------- Cartes-lignes (suites de coups) ----------
+
+type LineCard = NewCardInput & { id: string };
+
+/** Carte-ligne finissant sur ton dernier coup du chemin menant à `end` (null si moins de 2 de tes coups). */
+function buildLineCard(rep: Repertoire, byId: Map<string, RepNode>, end: RepNode): LineCard | null {
+  const mine = (n: RepNode) => (n.ply % 2 === 1) === (rep.color === 'white');
+  let path: RepNode[] = [];
+  for (let n: RepNode | undefined = end; n; n = byId.get(n.parentId)) path.unshift(n);
+  while (path.length && !mine(path[path.length - 1])) path = path.slice(0, -1);
+  // Noirs : le premier coup (blanc) sert de point de départ, il n'est pas à jouer.
+  const prefix = path.length && !mine(path[0]) ? [path[0]] : [];
+  const played = path.slice(prefix.length);
+  const userMoves = played.filter(mine).length;
+  if (userMoves < 2) return null;
+  const last = played[played.length - 1];
+  return {
+    id: `line:${rep.id}:${last.id}`,
+    type: 'opening',
+    title: `${rep.name} · ligne de ${userMoves} coups`,
+    fen: prefix.length ? prefix[0].fenAfter : START_FEN,
+    solution: played.map((n) => n.uci),
+    tags: [rep.color === 'white' ? 'blancs' : 'noirs'],
+    lastMove: prefix[0]?.uci,
+    line: prefix.length ? formatLine(prefix) : '',
+    repId: rep.id,
+    source: 'repertoire',
+    lineMode: true,
+    lineEnd: last.id,
+    deck: `${deckPath('Ouvertures', rep.name)}::Lignes`,
+  };
+}
+
+/** Carte-ligne depuis le début de l'arbre jusqu'au coup `endId`. */
+export async function createLineCard(repId: string, endId: string): Promise<'created' | 'exists' | 'short'> {
+  const rep = await db.repertoires.get(repId);
+  const nodes = await loadNodes(repId);
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const end = byId.get(endId);
+  if (!rep || !end) return 'short';
+  const card = buildLineCard(rep, byId, end);
+  if (!card) return 'short';
+  if (await db.cards.get(card.id)) return 'exists';
+  await db.cards.add(makeCard(card));
+  return 'created';
+}
+
+/** Une carte-ligne par ligne complète (jusqu'aux extrémités de l'arbre). */
+export async function createAllLineCards(repId: string): Promise<{ created: number; existing: number; skipped: number }> {
+  const rep = await db.repertoires.get(repId);
+  const nodes = await loadNodes(repId);
+  if (!rep) return { created: 0, existing: 0, skipped: 0 };
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const parents = new Set(nodes.map((n) => n.parentId));
+  const wanted = new Map<string, LineCard>();
+  let skipped = 0;
+  for (const leaf of nodes.filter((n) => !parents.has(n.id))) {
+    const card = buildLineCard(rep, byId, leaf);
+    if (card) wanted.set(card.id, card);
+    else skipped++;
+  }
+  const have = new Set((await db.cards.bulkGet([...wanted.keys()])).filter(Boolean).map((c) => c!.id));
+  const fresh = [...wanted.values()].filter((c) => !have.has(c.id));
+  const now = Date.now();
+  await db.cards.bulkAdd(fresh.map((c, i) => ({ ...makeCard(c), createdAt: now + i })));
+  return { created: fresh.length, existing: wanted.size - fresh.length, skipped };
 }

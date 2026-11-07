@@ -78,7 +78,7 @@ export const SEED_CARDS: (NewCardInput & { id: string })[] = [
 /** Ajoute les cartes de démo absentes. Retourne le nombre de cartes ajoutées. */
 export async function seedDeck(): Promise<number> {
   const existing = new Set(await db.cards.bulkGet(SEED_CARDS.map((c) => c.id)).then((r) => r.filter(Boolean).map((c) => c!.id)));
-  const toAdd = SEED_CARDS.filter((c) => !existing.has(c.id)).map(makeCard);
+  const toAdd = SEED_CARDS.filter((c) => !existing.has(c.id)).map((c) => makeCard({ ...c, deck: 'Démo' }));
   await db.cards.bulkAdd(toAdd);
   return toAdd.length;
 }

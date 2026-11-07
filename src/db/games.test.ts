@@ -41,3 +41,29 @@ describe('parties importées', () => {
     expect(await db.games.count()).toBe(0);
   });
 });
+
+describe('favoris et suppression groupée', () => {
+  it('garde le favori après réimport et supprime plusieurs parties avec leurs cartes', async () => {
+    const { toggleFavorite, deleteGames } = await import('./games');
+    const a = parsePgnGames(PGN, { username: 'Alice' }).games;
+    await saveParsedGames(a, all);
+    await toggleFavorite(a[0].id);
+    await saveParsedGames(a, all); // réimport : le favori est conservé
+    expect((await db.games.get(a[0].id))!.favorite).toBe(true);
+    await toggleFavorite(a[0].id);
+    expect((await db.games.get(a[0].id))!.favorite).toBeFalsy();
+
+    const b = { ...a[0], id: 'lichess:zzzz9999' };
+    await saveParsedGames([b], all);
+    const removed = await deleteGames([a[0].id, b.id]);
+    expect(removed).toBe(2);
+    expect(await db.games.count()).toBe(0);
+    expect(await db.cards.count()).toBe(0);
+  });
+
+  it('crée les cartes d’erreurs dans le paquet Parties::source', async () => {
+    const { games } = parsePgnGames(PGN, { username: 'Alice' });
+    await saveParsedGames(games, all);
+    expect((await db.cards.toArray())[0].deck).toBe('Parties::Lichess');
+  });
+});

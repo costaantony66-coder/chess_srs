@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { BarChart3, Brain, Crown, FileText, GitBranch, Puzzle, type LucideIcon } from 'lucide-react';
 import { ThemeToggle } from './components/ui/ThemeToggle';
-import { ComingSoon } from './components/ComingSoon';
 import { Playground } from './features/playground/Playground';
 import { GamesPage } from './features/games/GamesPage';
 import { OpeningsPage } from './features/openings/OpeningsPage';
 import { PuzzleImporter } from './features/puzzles/PuzzleImporter';
+import { StatsPage } from './features/stats/StatsPage';
 import { ReviewSession } from './features/review/ReviewSession';
 import { useTheme } from './hooks/useTheme';
 
@@ -34,7 +34,7 @@ function View({ tab, goReview }: { tab: TabId; goReview: () => void }) {
     case 'games':
       return <GamesPage onGoReview={goReview} />;
     case 'stats':
-      return <ComingSoon title="Statistiques" phase={6} text="Streak, heatmap de révisions, courbe de rétention." />;
+      return <StatsPage />;
   }
 }
 
