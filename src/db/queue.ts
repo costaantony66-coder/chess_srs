@@ -1,8 +1,8 @@
 import { State } from 'ts-fsrs';
 import { db, type StoredCard } from './db';
 import { schedule, type RatingId } from '../lib/fsrs';
+import { getNewPerDay } from '../lib/settings';
 
-export const NEW_PER_DAY = 10;
 const LEARN_AHEAD_MS = 20 * 60 * 1000;
 
 export interface QueueState {
@@ -35,7 +35,7 @@ export async function loadQueue(now = new Date(), excludeId?: string): Promise<Q
       .sortBy('due')
   ).filter((c) => c.state === State.Review || c.due <= nowMs + LEARN_AHEAD_MS);
 
-  const newLeft = Math.max(0, NEW_PER_DAY - newToday);
+  const newLeft = Math.max(0, getNewPerDay() - newToday);
   const fresh = newLeft
     ? (await db.cards.where('state').equals(State.New).sortBy('createdAt')).slice(0, newLeft)
     : [];

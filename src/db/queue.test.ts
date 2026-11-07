@@ -1,7 +1,8 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { db } from './db';
-import { applyReview, loadQueue, NEW_PER_DAY } from './queue';
+import { applyReview, loadQueue } from './queue';
+import { getNewPerDay } from '../lib/settings';
 import { SEED_CARDS, seedDeck } from '../data/seed';
 
 beforeEach(async () => {
@@ -14,7 +15,7 @@ describe('file de révision', () => {
     await seedDeck();
     const q = await loadQueue();
     expect(q.totalCards).toBe(SEED_CARDS.length);
-    expect(q.counts.new).toBe(Math.min(NEW_PER_DAY, SEED_CARDS.length));
+    expect(q.counts.new).toBe(Math.min(getNewPerDay(), SEED_CARDS.length));
   });
 
   it('Good planifie la carte plus tard et la sort de la file', async () => {

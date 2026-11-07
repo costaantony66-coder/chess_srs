@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { FlipVertical2, RotateCcw, Undo2 } from 'lucide-react';
+import { RefreshCw, RotateCcw, Undo2 } from 'lucide-react';
 import { Board, type Feedback } from '../../components/board/Board';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
-import { RatingButtons } from '../../components/ui/RatingButtons';
 import { useChessGame } from '../../hooks/useChessGame';
 
 export function Playground() {
@@ -42,7 +41,7 @@ export function Playground() {
           <p className="font-display text-lg">{status}</p>
           <div className="mt-3 grid grid-cols-3 gap-2">
             <Button onClick={() => setOrientation((o) => (o === 'white' ? 'black' : 'white'))}>
-              <FlipVertical2 size={16} /> Retourner
+              <RefreshCw size={16} /> Retourner
             </Button>
             <Button onClick={game.undo} disabled={game.history.length === 0}>
               <Undo2 size={16} /> Annuler
@@ -78,10 +77,6 @@ export function Playground() {
           )}
         </Card>
 
-        <Card>
-          <p className="mb-2 text-sm text-muted">Notation FSRS (branchée en phase 2)</p>
-          <RatingButtons disabled />
-        </Card>
       </div>
     </div>
   );
