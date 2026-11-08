@@ -10,6 +10,8 @@ export interface Evaluation {
   cp: number;
   /** Meilleur coup UCI ('' si la position est terminée). */
   best: string;
+  /** Évaluation du 2ᵉ meilleur coup (même point de vue), absente s'il n'y a qu'un coup légal. */
+  second?: number;
 }
 
 export interface Evaluator {
@@ -19,8 +21,11 @@ export interface Evaluator {
 const toCp = (kind: string, value: number) =>
   kind === 'cp' ? value : (value >= 0 ? 1 : -1) * (10000 - Math.abs(value));
 
-/** Chances de gain dans [-1, 1] (formule de Lichess). */
-export const winChance = (cp: number) => 2 / (1 + Math.exp(-0.00368208 * Math.max(-1000, Math.min(1000, cp)))) - 1;
+/** Points attendus dans [0, 1] à partir d'une évaluation en centipions (formule de Lichess). */
+export const expectedPoints = (cp: number) => 1 / (1 + Math.exp(-0.00368208 * Math.max(-1000, Math.min(1000, cp))));
+
+/** Chances de gain dans [-1, 1]. */
+export const winChance = (cp: number) => 2 * expectedPoints(cp) - 1;
 
 export class Uci implements Evaluator {
   private listeners = new Set<(line: string) => void>();
@@ -41,10 +46,12 @@ export class Uci implements Evaluator {
     });
   }
 
-  async init() {
+  /** `multiPv` : nombre de coups évalués par position (2 pour repérer les « seuls bons coups »). */
+  async init(multiPv = 1) {
     const ok = this.waitFor((l) => l === 'uciok');
     this.transport.send('uci');
     await ok;
+    if (multiPv > 1) this.transport.send(`setoption name MultiPV value ${multiPv}`);
     const ready = this.waitFor((l) => l === 'readyok');
     this.transport.send('isready');
     await ready;
@@ -52,15 +59,15 @@ export class Uci implements Evaluator {
 
   analyse(fen: string, depth: number): Promise<Evaluation> {
     return new Promise((resolve) => {
-      let cp = 0;
+      const scores = new Map<number, number>(); // numéro de ligne (multipv) -> dernière évaluation
       const l = (line: string) => {
         if (line.startsWith('info') && line.includes(' score ') && !/lowerbound|upperbound/.test(line)) {
           const m = /score (cp|mate) (-?\d+)/.exec(line);
-          if (m) cp = toCp(m[1], Number(m[2]));
+          if (m) scores.set(Number(/ multipv (\d+)/.exec(line)?.[1] ?? 1), toCp(m[1], Number(m[2])));
         } else if (line.startsWith('bestmove')) {
           this.listeners.delete(l);
           const best = line.split(' ')[1];
-          resolve({ cp, best: best && best !== '(none)' ? best : '' });
+          resolve({ cp: scores.get(1) ?? 0, best: best && best !== '(none)' ? best : '', second: scores.get(2) });
         }
       };
       this.listeners.add(l);

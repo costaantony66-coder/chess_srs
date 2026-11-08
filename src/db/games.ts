@@ -8,20 +8,24 @@ export interface SaveReport {
   unanalysed: number;
 }
 
-const toGame = (g: ParsedGame, favorite?: boolean): Game => ({
-  id: g.id,
-  source: g.source,
-  white: g.white,
-  black: g.black,
-  myColor: g.myColor,
-  result: g.result,
-  playedAt: g.playedAt,
-  opening: g.opening,
-  moves: g.moves.join(' '),
-  analysed: g.analysed,
-  importedAt: Date.now(),
-  ...(favorite ? { favorite: true } : {}),
-});
+const toGame = (g: ParsedGame, prev?: Game): Game => {
+  const analysis = g.analysis ?? prev?.analysis;
+  return {
+    id: g.id,
+    source: g.source,
+    white: g.white,
+    black: g.black,
+    myColor: g.myColor,
+    result: g.result,
+    playedAt: g.playedAt,
+    opening: g.opening ?? prev?.opening,
+    moves: g.moves.join(' '),
+    analysed: !!analysis,
+    importedAt: prev?.importedAt ?? Date.now(),
+    ...(prev?.favorite ? { favorite: true } : {}),
+    ...(analysis ? { analysis } : {}),
+  };
+};
 
 /** Enregistre les parties et crée une carte par erreur retenue (sans doublon). */
 export async function saveParsedGames(parsed: ParsedGame[], allowed: Set<Severity>): Promise<SaveReport> {
@@ -31,7 +35,7 @@ export async function saveParsedGames(parsed: ParsedGame[], allowed: Set<Severit
   const have = new Set((await db.cards.bulkGet(cards.map((c) => c.id))).filter(Boolean).map((c) => c!.id));
   const fresh = cards.filter((c) => !have.has(c.id));
   await db.transaction('rw', db.games, db.cards, async () => {
-    await db.games.bulkPut(parsed.map((g) => toGame(g, existing.get(g.id)?.favorite)));
+    await db.games.bulkPut(parsed.map((g) => toGame(g, existing.get(g.id))));
     await db.cards.bulkAdd(fresh);
   });
   return {

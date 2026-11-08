@@ -9,8 +9,6 @@ async function check(res: Response, what: string) {
 export async function fetchLichess(username: string, max: number): Promise<string> {
   const params = new URLSearchParams({
     max: String(max),
-    analysed: 'true',
-    evals: 'true',
     opening: 'true',
     moves: 'true',
     perfType: 'ultraBullet,bullet,blitz,rapid,classical,correspondence',
