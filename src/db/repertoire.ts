@@ -3,7 +3,7 @@ import { db, makeCard, type NewCardInput, type RepNode, type Repertoire, type St
 import { parsePgn, type PgnNode } from '../lib/pgn';
 import { State } from 'ts-fsrs';
 import { applyReview } from './queue';
-import { deckPath } from '../lib/decks';
+import { openingDecks } from '../lib/decks';
 
 export const ROOT = 'root';
 export const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -204,7 +204,7 @@ export async function syncCards(repId: string) {
     groups.set(key, [...(groups.get(key) ?? []), n]);
   }
 
-  const deck = deckPath('Ouvertures', rep.name);
+  const decks = openingDecks(rep.name);
   const wanted = new Map<string, NewCardInput & { id: string }>();
   for (const group of groups.values()) {
     const main = group[0];
@@ -222,7 +222,7 @@ export async function syncCards(repId: string) {
       note: main.comment,
       repId,
       source: 'repertoire',
-      deck,
+      deck: decks.singles,
     });
   }
 
@@ -233,7 +233,7 @@ export async function syncCards(repId: string) {
     const lines = all.filter((c) => c.lineMode);
     const deadLines = lines.filter((c) => !c.lineEnd || !byId.has(c.lineEnd)).map((c) => c.id);
     if (deadLines.length) await db.cards.bulkDelete(deadLines);
-    await db.cards.bulkPut(lines.filter((c) => !deadLines.includes(c.id)).map((c) => ({ ...c, deck: `${deck}::Lignes` })));
+    await db.cards.bulkPut(lines.filter((c) => !deadLines.includes(c.id)).map((c) => ({ ...c, deck: decks.lines })));
     const now = Date.now();
     const toPut: StoredCard[] = [];
     for (const [id, input] of wanted) {
@@ -337,7 +337,7 @@ function buildLineCard(rep: Repertoire, byId: Map<string, RepNode>, end: RepNode
     source: 'repertoire',
     lineMode: true,
     lineEnd: last.id,
-    deck: `${deckPath('Ouvertures', rep.name)}::Lignes`,
+    deck: openingDecks(rep.name).lines,
   };
 }
 

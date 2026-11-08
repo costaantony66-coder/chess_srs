@@ -35,10 +35,30 @@ src/
 .github/workflows/       # déploiement GitHub Pages
 ```
 
+## Stockfish
+
+Les parties sans analyse (Chess.com surtout) sont analysées dans le navigateur par Stockfish 19 « lite »
+(WASM, un seul thread, ≈2 Mo, copié depuis le paquet npm `stockfish` vers `public/stockfish` par
+`scripts/copy-stockfish.mjs`). Les erreurs sont classées avec les seuils de Lichess (chances de gain : 0,1 / 0,2 / 0,3)
+et deviennent des cartes. **Licence** : Stockfish est sous GPL-3.0 (`Copying.txt` est servi avec le moteur) ; si tu
+publies le code de l'application, fais-le sous une licence compatible.
+
+## PWA
+
+Manifeste + service worker (`public/sw.js`) : installation sur mobile/ordinateur et usage hors ligne après une première
+visite (les packs de puzzles et le moteur sont mis en cache à la première utilisation). Le cache est renouvelé à
+chaque déploiement.
+
+## Source externe (optionnelle)
+
+Avec un jeton Lichess personnel (sans aucune autorisation), l'entraînement d'ouvertures complète les réponses
+adverses avec l'explorateur Lichess et signale les positions non préparées. Sans jeton, l'arbre seul est utilisé.
+
 ## Paquets (façon Anki)
 
 Chaque carte a un chemin de paquet : `Ouvertures::Système de Londres`, `Puzzles::Fourchette`,
-`Parties::Lichess`, `Finales`, `Démo`. L'onglet Réviser liste les paquets avec leurs compteurs
+`Parties::Lichess`, `Finales`, `Démo`. Chaque ouverture a deux sous-paquets : `Coups seuls` et `Lignes`.
+L'onglet Réviser se parcourt par clics (niveau par niveau, fil d'Ariane) et affiche les compteurs
 (Nouvelles / Apprentissage / À revoir) ; un paquet parent inclut ses sous-paquets. Le plafond de nouvelles cartes par
 jour s'applique au paquet étudié. Les cartes créées avant les paquets sont rangées automatiquement (migration Dexie v5).
 
@@ -88,7 +108,7 @@ Push sur `main` → GitHub Actions build et publie sur GitHub Pages
 - [x] 4. Éditeur de répertoire d'ouvertures
 - [x] 5. Import de parties → cartes d'erreurs, entraînement d'ouvertures
 - [x] 6A. Paquets façon Anki, cartes-lignes, favoris et suppression groupée, statistiques
-- [ ] 6B. Stockfish (analyse des parties sans analyse), PWA hors ligne, source externe pour l'entraînement
+- [x] 6B. Navigation par paquets (Coups seuls / Lignes), Stockfish, PWA hors ligne, source externe pour l'entraînement
 
 ## Workflow Git
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { BarChart3, Brain, Crown, FileText, GitBranch, Puzzle, type LucideIcon } from 'lucide-react';
+import { BarChart3, Brain, Crown, Download, FileText, GitBranch, Puzzle, type LucideIcon } from 'lucide-react';
 import { ThemeToggle } from './components/ui/ThemeToggle';
 import { Playground } from './features/playground/Playground';
 import { GamesPage } from './features/games/GamesPage';
@@ -8,6 +8,7 @@ import { OpeningsPage } from './features/openings/OpeningsPage';
 import { PuzzleImporter } from './features/puzzles/PuzzleImporter';
 import { StatsPage } from './features/stats/StatsPage';
 import { ReviewSession } from './features/review/ReviewSession';
+import { useInstallPrompt } from './hooks/useInstallPrompt';
 import { useTheme } from './hooks/useTheme';
 
 type TabId = 'board' | 'review' | 'puzzles' | 'openings' | 'games' | 'stats';
@@ -41,12 +42,23 @@ function View({ tab, goReview }: { tab: TabId; goReview: () => void }) {
 export function App() {
   const [tab, setTab] = useState<TabId>('review');
   const { theme, toggle } = useTheme();
+  const { canInstall, install } = useInstallPrompt();
 
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center justify-between px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <h1 className="font-display text-2xl tracking-tight">Chess SRS</h1>
-        <ThemeToggle theme={theme} onToggle={toggle} />
+        <div className="flex items-center gap-2">
+          {canInstall && (
+            <button
+              onClick={() => void install()}
+              className="flex min-h-11 items-center gap-1.5 rounded-xl bg-accent px-3 text-sm font-medium text-accent-fg transition active:scale-95"
+            >
+              <Download size={16} /> Installer
+            </button>
+          )}
+          <ThemeToggle theme={theme} onToggle={toggle} />
+        </div>
       </header>
 
       <main className="flex-1 overflow-y-auto px-4 pb-4">

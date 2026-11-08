@@ -1,14 +1,19 @@
-import { useCallback, useEffect, useState } from 'react';
-import { ChevronDown, ChevronRight, Layers } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ChevronRight, Layers } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { seedDeck } from '../../data/seed';
 import { loadDeckTree, type DeckNode, type DeckTree } from '../../db/decks';
+import { DECK_SEP } from '../../lib/decks';
 import { getNewPerDay, setNewPerDay } from '../../lib/settings';
 import { Backup } from './Backup';
 
-function Counts({ n }: { n: { new: number; learning: number; review: number } }) {
-  const cell = (v: number, tone: string) => <span className={`w-8 text-right font-semibold tabular-nums ${v ? tone : 'text-muted opacity-40'}`}>{v}</span>;
+type Counts = { new: number; learning: number; review: number };
+
+function CountCells({ n }: { n: Counts }) {
+  const cell = (v: number, tone: string) => (
+    <span className={`w-9 text-right font-semibold tabular-nums ${v ? tone : 'text-muted opacity-40'}`}>{v}</span>
+  );
   return (
     <span className="flex shrink-0 text-sm">
       {cell(n.new, 'text-accent')}
@@ -18,37 +23,28 @@ function Counts({ n }: { n: { new: number; learning: number; review: number } })
   );
 }
 
-function Row({ node, depth, open, toggle, onStudy }: { node: DeckNode; depth: number; open: Set<string>; toggle: (p: string) => void; onStudy: (path: string, title: string) => void }) {
-  const isOpen = open.has(node.path);
-  return (
-    <>
-      <div className="flex items-center gap-1 border-b border-border py-2 last:border-b-0" style={{ paddingLeft: depth * 16 }}>
-        {node.children.length ? (
-          <button onClick={() => toggle(node.path)} aria-label={isOpen ? 'Replier' : 'Déplier'} className="grid size-9 shrink-0 place-items-center text-muted">
-            {isOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-          </button>
-        ) : (
-          <span className="size-9 shrink-0" />
-        )}
-        <button className="min-w-0 flex-1 text-left" onClick={() => onStudy(node.path, node.name)}>
-          <p className="truncate font-medium">{node.name}</p>
-          <p className="text-xs text-muted">
-            {node.total} carte{node.total > 1 ? 's' : ''}
-          </p>
-        </button>
-        <Counts n={node} />
-      </div>
-      {isOpen &&
-        node.children.map((c) => <Row key={c.path} node={c} depth={depth + 1} open={open} toggle={toggle} onStudy={onStudy} />)}
-    </>
-  );
+function findNode(roots: DeckNode[], path: string): DeckNode | null {
+  let list = roots;
+  let found: DeckNode | null = null;
+  const parts = path.split(DECK_SEP);
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts.slice(0, i + 1).join(DECK_SEP);
+    found = list.find((n) => n.path === p) ?? null;
+    if (!found) return null;
+    list = found.children;
+  }
+  return found;
 }
 
-type Props = { onStudy: (deck: string | null, title: string) => void };
+type Props = {
+  /** Niveau affiché (chemin du paquet ouvert, null = racine). */
+  level: string | null;
+  onLevel: (path: string | null) => void;
+  onStudy: (deck: string | null, title: string) => void;
+};
 
-export function DeckHome({ onStudy }: Props) {
+export function DeckHome({ level, onLevel, onStudy }: Props) {
   const [tree, setTree] = useState<DeckTree | null>(null);
-  const [open, setOpen] = useState<Set<string>>(new Set());
   const [perDay, setPerDay] = useState(getNewPerDay);
 
   const refresh = useCallback(async () => setTree(await loadDeckTree()), []);
@@ -56,13 +52,12 @@ export function DeckHome({ onStudy }: Props) {
     void refresh();
   }, [refresh]);
 
-  const toggle = (p: string) =>
-    setOpen((s) => {
-      const n = new Set(s);
-      if (n.has(p)) n.delete(p);
-      else n.add(p);
-      return n;
-    });
+  const current = useMemo(() => (tree && level ? findNode(tree.roots, level) : null), [tree, level]);
+
+  // Si le paquet ouvert a disparu (suppression, renommage), retour à la racine.
+  useEffect(() => {
+    if (tree && level && !current) onLevel(null);
+  }, [tree, level, current, onLevel]);
 
   const changePerDay = (delta: number) => {
     const n = Math.max(0, Math.min(100, perDay + delta));
@@ -73,9 +68,14 @@ export function DeckHome({ onStudy }: Props) {
 
   if (!tree) return null;
 
+  const rows = current ? current.children : tree.roots;
+  const crumbs = level ? level.split(DECK_SEP).map((name, i, a) => ({ name, path: a.slice(0, i + 1).join(DECK_SEP) })) : [];
+  const head: Counts & { total: number } = current ?? tree.all;
+  const headTitle = current ? current.path.replaceAll(DECK_SEP, ' › ') : 'Toutes les cartes';
+
   return (
     <div className="mx-auto w-full max-w-2xl">
-      {tree.all.total === 0 ? (
+      {tree.all.total === 0 && tree.roots.length === 0 ? (
         <Card className="text-center">
           <h2 className="font-display text-2xl">Aucune carte</h2>
           <p className="mt-2 text-sm text-muted">Charge 9 cartes de démo, ou ajoute des puzzles, un répertoire d’ouvertures ou des parties.</p>
@@ -85,44 +85,90 @@ export function DeckHome({ onStudy }: Props) {
         </Card>
       ) : (
         <>
-          <Button variant="primary" className="w-full justify-between" onClick={() => onStudy(null, 'Toutes les cartes')}>
-            <span className="flex items-center gap-2">
-              <Layers size={18} /> Tout réviser
+          <nav aria-label="Fil d’Ariane" className="mb-3 flex flex-wrap items-center gap-1 text-sm">
+            <button className={level ? 'text-accent' : 'font-medium'} onClick={() => onLevel(null)}>
+              Réviser
+            </button>
+            {crumbs.map((c, i) => (
+              <span key={c.path} className="flex items-center gap-1">
+                <ChevronRight size={14} className="text-muted" />
+                <button className={i === crumbs.length - 1 ? 'font-medium' : 'text-accent'} onClick={() => onLevel(c.path)}>
+                  {c.name}
+                </button>
+              </span>
+            ))}
+          </nav>
+
+          <Button
+            variant="primary"
+            className="w-full justify-between"
+            disabled={head.total === 0}
+            onClick={() => onStudy(current ? current.path : null, headTitle)}
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <Layers size={18} className="shrink-0" />
+              <span className="truncate">{current ? `Réviser tout « ${current.name} »` : 'Tout réviser'}</span>
             </span>
             <span className="flex gap-2 text-sm font-semibold opacity-90">
-              <span>{tree.all.new}</span>
-              <span>{tree.all.learning}</span>
-              <span>{tree.all.review}</span>
+              <span>{head.new}</span>
+              <span>{head.learning}</span>
+              <span>{head.review}</span>
             </span>
           </Button>
 
           <Card className="mt-3 py-2">
-            <div className="flex items-center justify-end gap-1 pb-1 pr-0 text-xs text-muted">
-              <span className="w-8 text-right">Nouv.</span>
-              <span className="w-8 text-right">Appr.</span>
-              <span className="w-8 text-right">Revoir</span>
+            <div className="flex items-center justify-end pb-1 pr-8 text-xs text-muted">
+              <span className="w-9 text-right">Nouv.</span>
+              <span className="w-9 text-right">Appr.</span>
+              <span className="w-9 text-right">Revoir</span>
             </div>
-            {tree.roots.map((n) => (
-              <Row key={n.path} node={n} depth={0} open={open} toggle={toggle} onStudy={(path) => onStudy(path, path.replaceAll('::', ' › '))} />
-            ))}
+            {rows.map((n) => {
+              const hasChildren = n.children.length > 0;
+              const empty = n.total === 0;
+              return (
+                <button
+                  key={n.path}
+                  disabled={empty}
+                  onClick={() => (hasChildren ? onLevel(n.path) : onStudy(n.path, n.path.replaceAll(DECK_SEP, ' › ')))}
+                  className="flex w-full items-center gap-2 border-b border-border py-3 text-left last:border-b-0 disabled:opacity-60"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">{n.name}</span>
+                    <span className="block text-xs text-muted">
+                      {empty
+                        ? n.name === 'Lignes'
+                          ? 'Aucune ligne : crée-en dans l’éditeur du répertoire'
+                          : 'Aucune carte'
+                        : `${n.total} carte${n.total > 1 ? 's' : ''}${hasChildren ? ` · ${n.children.length} sous-paquet${n.children.length > 1 ? 's' : ''}` : ''}`}
+                    </span>
+                  </span>
+                  <CountCells n={n} />
+                  {hasChildren ? <ChevronRight size={18} className="shrink-0 text-muted" /> : <span className="w-[18px] shrink-0" />}
+                </button>
+              );
+            })}
           </Card>
         </>
       )}
 
-      <Card className="mt-6 flex items-center justify-between gap-3">
-        <p className="text-sm">Nouvelles cartes par jour et par paquet</p>
-        <div className="flex items-center gap-2">
-          <Button onClick={() => changePerDay(-5)} disabled={perDay <= 0} aria-label="Moins" className="w-11 px-0">
-            −
-          </Button>
-          <span className="w-8 text-center font-semibold">{perDay}</span>
-          <Button onClick={() => changePerDay(5)} disabled={perDay >= 100} aria-label="Plus" className="w-11 px-0">
-            +
-          </Button>
-        </div>
-      </Card>
+      {!level && (
+        <>
+          <Card className="mt-6 flex items-center justify-between gap-3">
+            <p className="text-sm">Nouvelles cartes par jour et par paquet</p>
+            <div className="flex items-center gap-2">
+              <Button onClick={() => changePerDay(-5)} disabled={perDay <= 0} aria-label="Moins" className="w-11 px-0">
+                −
+              </Button>
+              <span className="w-8 text-center font-semibold">{perDay}</span>
+              <Button onClick={() => changePerDay(5)} disabled={perDay >= 100} aria-label="Plus" className="w-11 px-0">
+                +
+              </Button>
+            </div>
+          </Card>
 
-      <Backup onImported={() => void refresh()} />
+          <Backup onImported={() => void refresh()} />
+        </>
+      )}
     </div>
   );
 }
