@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Chess } from 'chess.js';
-import { errorCards, parseChessComGames, parseLichessNdjson, parsePgnGames } from './games';
+import { errorCards, parseChessComGames, parseLichessNdjson, parsePgnGames, type ParsedGame } from './games';
 
 const LICHESS = JSON.stringify({
   id: 'abcd1234',
@@ -10,12 +10,6 @@ const LICHESS = JSON.stringify({
   moves: 'f3 e5 g4 Qh4#',
   opening: { name: 'Barnes Opening' },
   players: { white: { user: { name: 'Alice' } }, black: { user: { name: 'Bob' } } },
-  analysis: [
-    { eval: -30 },
-    { eval: 20 },
-    { eval: -900, best: 'e2e4', variation: 'e4 d5', judgment: { name: 'Blunder', comment: 'Blunder. e4 was best.' } },
-    { mate: -0 },
-  ],
 });
 
 const PGN = `[Event "Rated Blitz game"]
@@ -30,25 +24,31 @@ const PGN = `[Event "Rated Blitz game"]
 describe('parseLichessNdjson', () => {
   const games = parseLichessNdjson(LICHESS + '\n', 'alice');
 
-  it('lit la partie, ton camp et tes erreurs avec le meilleur coup', () => {
+  it('lit la partie et ton camp, sans erreurs : l’analyse vient de Stockfish', () => {
     expect(games).toHaveLength(1);
     const g = games[0];
     expect(g.id).toBe('lichess:abcd1234');
     expect(g.myColor).toBe('white');
-    expect(g.analysed).toBe(true);
-    expect(g.errors).toEqual([{ ply: 3, severity: 'Blunder', bestUci: 'e2e4' }]);
+    expect(g.opening).toBe('Barnes Opening');
+    expect(g.analysed).toBe(false);
+    expect(g.errors).toEqual([]);
   });
 
   it('ignore les parties où le pseudo ne joue pas', () => {
     expect(parseLichessNdjson(LICHESS, 'carol')).toHaveLength(0);
   });
+});
+
+describe('errorCards', () => {
+  const game: ParsedGame = { ...parseLichessNdjson(LICHESS, 'alice')[0], errors: [{ ply: 3, severity: 'Blunder', bestUci: 'e2e4' }] };
 
   it('crée une carte depuis la position avant la gaffe', () => {
-    const [card] = errorCards(games[0], new Set(['Blunder', 'Mistake']));
+    const [card] = errorCards(game, new Set(['Blunder', 'Mistake']));
     expect(card.id).toBe('err:lichess:abcd1234:3');
     expect(card.type).toBe('mistake');
     expect(card.solution).toEqual(['e2e4']);
     expect(card.lastMove).toBe('e7e5');
+    expect(card.deck).toBe('Parties::Lichess');
     const c = new Chess();
     c.move('f3');
     c.move('e5');
@@ -56,22 +56,23 @@ describe('parseLichessNdjson', () => {
     expect(card.note).toContain('g4');
   });
 
-  it('filtre selon la gravité choisie', () => {
-    expect(errorCards(games[0], new Set(['Inaccuracy']))).toHaveLength(0);
+  it('filtre selon la gravité choisie et gère les coups manqués', () => {
+    expect(errorCards(game, new Set(['Inaccuracy']))).toHaveLength(0);
+    const miss: ParsedGame = { ...game, errors: [{ ply: 3, severity: 'Miss', bestUci: 'e2e4' }] };
+    expect(errorCards(miss, new Set(['Miss']))[0].note).toContain('coup manqué');
   });
 });
 
 describe('parsePgnGames', () => {
-  it('lit une analyse Lichess annotée et dédoublonne avec l’API via le lien de la partie', () => {
+  it('lit les parties, dédoublonne avec Lichess via le lien et ignore les commentaires d’analyse', () => {
     const { games } = parsePgnGames(PGN, { username: 'alice' });
     expect(games).toHaveLength(1);
     expect(games[0].id).toBe('lichess:abcd1234');
-    expect(games[0].analysed).toBe(true);
-    expect(games[0].errors).toEqual([{ ply: 3, severity: 'Blunder', bestUci: 'e2e4' }]);
+    expect(games[0].moves).toEqual(['f3', 'e5', 'g4', 'Qh4#']);
+    expect(games[0].errors).toEqual([]);
   });
 
-  it('ignore les erreurs de l’adversaire et signale un camp inconnu', () => {
-    expect(parsePgnGames(PGN, { username: 'bob' }).games[0].errors).toHaveLength(0);
+  it('signale un camp inconnu et accepte un camp choisi à la main', () => {
     const r = parsePgnGames(PGN, { username: 'carol' });
     expect(r.games).toHaveLength(0);
     expect(r.unresolved).toBe(1);
@@ -100,6 +101,5 @@ describe('parseChessComGames', () => {
     expect(games[0].id).toBe('chesscom:123456789');
     expect(games[0].moves).toHaveLength(7);
     expect(games[0].analysed).toBe(false);
-    expect(games[0].errors).toEqual([]);
   });
 });

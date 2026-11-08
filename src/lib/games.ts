@@ -1,11 +1,11 @@
 import { Chess } from 'chess.js';
-import type { NewCardInput } from '../db/db';
+import type { GameAnalysis, NewCardInput } from '../db/db';
 import { deckPath, SOURCE_LABEL } from './decks';
 import { parsePgn } from './pgn';
 
-export type Severity = 'Inaccuracy' | 'Mistake' | 'Blunder';
+export type Severity = 'Inaccuracy' | 'Mistake' | 'Blunder' | 'Miss';
 export const SEVERITIES: Severity[] = ['Inaccuracy', 'Mistake', 'Blunder'];
-export const SEVERITY_LABEL: Record<Severity, string> = { Inaccuracy: 'Imprécision', Mistake: 'Erreur', Blunder: 'Gaffe' };
+export const SEVERITY_LABEL: Record<Severity, string> = { Inaccuracy: 'Imprécision', Mistake: 'Erreur', Blunder: 'Gaffe', Miss: 'Coup manqué' };
 
 export interface GameError {
   /** Demi-coup de ton coup fautif (1 = premier coup des blancs). */
@@ -27,6 +27,8 @@ export interface ParsedGame {
   moves: string[];
   analysed: boolean;
   errors: GameError[];
+  /** Analyse Stockfish complète (créée par l'analyse, jamais par l'import). */
+  analysis?: GameAnalysis;
 }
 
 const hash = (s: string) => {
@@ -35,7 +37,6 @@ const hash = (s: string) => {
   return (h >>> 0).toString(36);
 };
 
-const mine = (ply: number, color: 'white' | 'black') => (ply % 2 === 1) === (color === 'white');
 const START = new Chess().fen();
 
 // ---------- Lichess (export JSON/ndjson avec evals=true) ----------
@@ -50,7 +51,6 @@ interface LichessGame {
   moves?: string;
   opening?: { name?: string };
   players: Record<'white' | 'black', { user?: { name: string }; name?: string; aiLevel?: number }>;
-  analysis?: { best?: string; judgment?: { name: string } }[];
 }
 
 export function parseLichessNdjson(text: string, username: string): ParsedGame[] {
@@ -71,12 +71,6 @@ export function parseLichessNdjson(text: string, username: string): ParsedGame[]
     const myColor = white.toLowerCase() === u ? 'white' : black.toLowerCase() === u ? 'black' : null;
     if (!myColor) continue;
     const moves = (g.moves ?? '').split(' ').filter(Boolean);
-    const errors: GameError[] = [];
-    (g.analysis ?? []).forEach((a, i) => {
-      const ply = i + 1;
-      const sev = a.judgment?.name as Severity | undefined;
-      if (a.best && sev && SEVERITIES.includes(sev) && mine(ply, myColor)) errors.push({ ply, severity: sev, bestUci: a.best });
-    });
     out.push({
       id: `lichess:${g.id}`,
       source: 'lichess',
@@ -87,8 +81,8 @@ export function parseLichessNdjson(text: string, username: string): ParsedGame[]
       playedAt: g.createdAt,
       opening: g.opening?.name,
       moves,
-      analysed: Array.isArray(g.analysis) && g.analysis.length > 0,
-      errors,
+      analysed: false,
+      errors: [],
     });
   }
   return out;
@@ -96,13 +90,10 @@ export function parseLichessNdjson(text: string, username: string): ParsedGame[]
 
 // ---------- PGN (analyse Lichess « literate » : « Mistake. Best move was h6. ») ----------
 
-const ERR_RE = /(Inaccuracy|Mistake|Blunder)\.\s*Best move was ([A-Za-z0-9=+#-]+)/;
-
 export function parsePgnGames(
   text: string,
   opts: { username?: string; side?: 'auto' | 'white' | 'black' } = {},
 ): { games: ParsedGame[]; unresolved: number } {
-  const analysedText = /\[%eval|Best move was/.test(text);
   const u = opts.username?.trim().toLowerCase();
   const games: ParsedGame[] = [];
   let unresolved = 0;
@@ -126,10 +117,8 @@ export function parsePgnGames(
 
     const chess = new Chess();
     const moves: string[] = [];
-    const errors: GameError[] = [];
     for (let kids = g.root; kids.length; ) {
       const node = kids[0];
-      const before = chess.fen();
       let mv;
       try {
         mv = chess.move(node.san);
@@ -137,16 +126,6 @@ export function parsePgnGames(
         break;
       }
       moves.push(mv.san);
-      const ply = moves.length;
-      const m = node.comment ? ERR_RE.exec(node.comment) : null;
-      if (m && mine(ply, myColor)) {
-        try {
-          const b = new Chess(before).move(m[2]);
-          errors.push({ ply, severity: m[1] as Severity, bestUci: b.from + b.to + (b.promotion ?? '') });
-        } catch {
-          /* meilleur coup illisible : on ignore */
-        }
-      }
       kids = node.children;
     }
     if (!moves.length) continue;
@@ -165,8 +144,8 @@ export function parsePgnGames(
       playedAt: Number.isNaN(date) ? undefined : date,
       opening: g.headers.Opening,
       moves,
-      analysed: analysedText,
-      errors,
+      analysed: false,
+      errors: [],
     });
   }
   return { games, unresolved };

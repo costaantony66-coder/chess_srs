@@ -63,7 +63,11 @@ export function GamesPage({ onGoReview }: { onGoReview: () => void }) {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
       <GameImport onDone={() => void refresh()} />
-      <GameAnalysis games={rows.filter((r) => !r.game.analysed).map((r) => r.game)} onDone={() => void refresh()} />
+      <GameAnalysis
+        candidates={rows.filter((r) => !r.game.analysis).map((r) => r.game)}
+        selection={rows.filter((r) => selected.has(r.game.id)).map((r) => r.game)}
+        onDone={() => void refresh()}
+      />
 
       <div>
         <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -126,7 +130,9 @@ export function GamesPage({ onGoReview }: { onGoReview: () => void }) {
                       {g.opening && ` · ${g.opening}`}
                     </p>
                     <p className="text-sm">
-                      <span className={g.analysed ? 'text-good' : 'text-muted'}>{g.analysed ? 'analysée' : 'non analysée'}</span>
+                      <span className={g.analysis ? 'text-good' : 'text-muted'}>
+                        {g.analysis ? `analysée · précision ${Math.round(g.analysis.accuracy[g.myColor])} %` : 'non analysée'}
+                      </span>
                       <span className="text-muted">
                         {' '}
                         · {r.cards} carte{r.cards > 1 ? 's' : ''}

@@ -10,4 +10,11 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 );
 
+// Le jeton Lichess de l'ancienne « source externe » n'est plus utilisé : on l'efface.
+try {
+  localStorage.removeItem('lichessToken');
+} catch {
+  /* stockage indisponible */
+}
+
 registerServiceWorker();

@@ -1,13 +1,18 @@
 import type { Game } from './db';
 import { saveParsedGames, type SaveReport } from './games';
-import { analyseGame, type AnalyseOptions } from '../lib/analysis';
+import { loadBook } from '../data/book';
+import { analyseGameFull, errorsFromAnalysis, type AnalyseOptions } from '../lib/analysis';
 import type { Evaluator } from '../lib/engine';
 import type { ParsedGame, Severity } from '../lib/games';
 
-/** Analyse une partie enregistrée, crée les cartes d'erreurs et la marque comme analysée. */
-export async function analyseStoredGame(game: Game, engine: Evaluator, allowed: Set<Severity>, opts: AnalyseOptions): Promise<SaveReport> {
+/**
+ * Analyse complète d'une partie enregistrée : l'analyse (tous les coups classés) est conservée avec la partie,
+ * et les erreurs de ton camp choisies (`allowed`) deviennent des cartes.
+ */
+export async function analyseStoredGame(game: Game, engine: Evaluator, allowed: Set<Severity>, opts: Omit<AnalyseOptions, 'book'>): Promise<SaveReport> {
   const moves = game.moves.split(' ').filter(Boolean);
-  const errors = await analyseGame(moves, game.myColor, engine, opts);
+  const book = await loadBook();
+  const { analysis, opening } = await analyseGameFull(moves, engine, { ...opts, book });
   const parsed: ParsedGame = {
     id: game.id,
     source: game.source,
@@ -16,10 +21,11 @@ export async function analyseStoredGame(game: Game, engine: Evaluator, allowed: 
     myColor: game.myColor,
     result: game.result,
     playedAt: game.playedAt,
-    opening: game.opening,
+    opening: game.opening ?? opening,
     moves,
     analysed: true,
-    errors,
+    errors: errorsFromAnalysis(analysis, game.myColor),
+    analysis,
   };
   return saveParsedGames([parsed], allowed);
 }

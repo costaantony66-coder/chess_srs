@@ -35,24 +35,24 @@ src/
 .github/workflows/       # déploiement GitHub Pages
 ```
 
-## Stockfish
+## Analyse Stockfish
 
-Les parties sans analyse (Chess.com surtout) sont analysées dans le navigateur par Stockfish 19 « lite »
-(WASM, un seul thread, ≈2 Mo, copié depuis le paquet npm `stockfish` vers `public/stockfish` par
-`scripts/copy-stockfish.mjs`). Les erreurs sont classées avec les seuils de Lichess (chances de gain : 0,1 / 0,2 / 0,3)
-et deviennent des cartes. **Licence** : Stockfish est sous GPL-3.0 (`Copying.txt` est servi avec le moteur) ; si tu
-publies le code de l'application, fais-le sous une licence compatible.
+Les parties sont analysées dans le navigateur par Stockfish 19 « lite » (WASM, un seul thread, ≈2 Mo, copié depuis le
+paquet npm `stockfish` vers `public/stockfish` par `scripts/copy-stockfish.mjs`), avec 2 lignes par position
+(MultiPV). Chaque coup des deux camps est classé d'après les points attendus perdus par rapport au meilleur coup :
+brillant (sacrifice), très bon coup (seul bon coup), meilleur coup, excellent (≤ 0,02), bon (≤ 0,05), imprécision
+(≤ 0,10), erreur (≤ 0,20), gaffe (> 0,20), coup manqué (faute adverse non exploitée) et théorie (base d'ouvertures
+Lichess, CC0, `src/data/openings.json`, régénérable avec `scripts/build-openings.mjs`). Ces critères approchent ceux de
+Chess.com sans les reproduire. La précision par camp suit la formule de Lichess. Les erreurs choisies deviennent des
+cartes ; l'analyse est conservée avec la partie (export JSON inclus).
+**Licence** : Stockfish est sous GPL-3.0 (`Copying.txt` est servi avec le moteur) ; si tu publies le code de
+l'application, fais-le sous une licence compatible.
 
 ## PWA
 
 Manifeste + service worker (`public/sw.js`) : installation sur mobile/ordinateur et usage hors ligne après une première
 visite (les packs de puzzles et le moteur sont mis en cache à la première utilisation). Le cache est renouvelé à
 chaque déploiement.
-
-## Source externe (optionnelle)
-
-Avec un jeton Lichess personnel (sans aucune autorisation), l'entraînement d'ouvertures complète les réponses
-adverses avec l'explorateur Lichess et signale les positions non préparées. Sans jeton, l'arbre seul est utilisé.
 
 ## Paquets (façon Anki)
 
@@ -108,7 +108,9 @@ Push sur `main` → GitHub Actions build et publie sur GitHub Pages
 - [x] 4. Éditeur de répertoire d'ouvertures
 - [x] 5. Import de parties → cartes d'erreurs, entraînement d'ouvertures
 - [x] 6A. Paquets façon Anki, cartes-lignes, favoris et suppression groupée, statistiques
-- [x] 6B. Navigation par paquets (Coups seuls / Lignes), Stockfish, PWA hors ligne, source externe pour l'entraînement
+- [x] 6B. Navigation par paquets (Coups seuls / Lignes), Stockfish, PWA hors ligne
+- [x] 7A. Analyse complète façon Chess.com (catégories, précision, barre et courbe d'évaluation), choix du nombre de parties, import simplifié
+- [ ] 7B. Plateau avec bot (choix de l'Elo), rubrique Tuto
 
 ## Workflow Git
 

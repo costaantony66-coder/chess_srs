@@ -62,6 +62,32 @@ export interface RepNode {
   comment?: string;
 }
 
+export type MoveClass =
+  | 'brilliant'
+  | 'great'
+  | 'best'
+  | 'excellent'
+  | 'good'
+  | 'book'
+  | 'inaccuracy'
+  | 'mistake'
+  | 'miss'
+  | 'blunder';
+
+/** Analyse Stockfish complète d'une partie (les deux camps). */
+export interface GameAnalysis {
+  version: 1;
+  depth: number;
+  /** Évaluation en centipions (point de vue des blancs) de chaque position 0..n (mat = ±10000). */
+  evals: number[];
+  /** Meilleur coup UCI de chaque position 0..n-1 ('' si la partie est finie). */
+  bests: string[];
+  /** Catégorie de chaque demi-coup (index = demi-coup - 1). */
+  classes: MoveClass[];
+  /** Précision moyenne (0..100) de chaque camp. */
+  accuracy: { white: number; black: number };
+}
+
 export interface Game {
   id: string;
   source: 'lichess' | 'chesscom' | 'pgn';
@@ -73,10 +99,12 @@ export interface Game {
   opening?: string;
   /** Coups en SAN, séparés par des espaces. */
   moves: string;
-  /** Une analyse (évaluations) était disponible à l'import. */
+  /** Ancien indicateur (analyse Lichess) : l'état réel est la présence de `analysis`. */
   analysed: boolean;
   importedAt: number;
   favorite?: boolean;
+  /** Présente une fois la partie analysée par Stockfish. */
+  analysis?: GameAnalysis;
 }
 
 export interface ReviewLog {
