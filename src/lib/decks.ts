@@ -33,11 +33,11 @@ export function defaultDeck(card: { type: string }): string {
 
 /** Range une carte créée avant les paquets (migration et anciens exports). */
 export function legacyDeck(
-  card: { id: string; type: string; source?: string; title: string },
+  card: { id: string; type: string; source?: string; title: string; lineMode?: boolean },
   ctx: { repName?: string; gameSource?: string } = {},
 ): string {
   if (card.id.startsWith('demo-')) return 'Démo';
-  if (card.source === 'repertoire') return deckPath('Ouvertures', ctx.repName ?? 'Divers');
+  if (card.source === 'repertoire') return `${deckPath('Ouvertures', ctx.repName ?? 'Divers')}${DECK_SEP}${card.lineMode ? 'Lignes' : 'Coups seuls'}`;
   if (card.source === 'lichess') {
     const m = /^Puzzle · (.+)$/.exec(card.title);
     return deckPath('Puzzles', m?.[1] ?? 'Divers');
@@ -45,3 +45,12 @@ export function legacyDeck(
   if (card.source === 'game') return deckPath('Parties', ctx.gameSource ? (SOURCE_LABEL[ctx.gameSource] ?? ctx.gameSource) : 'Divers');
   return defaultDeck(card);
 }
+
+/** Sous-paquets d'une ouverture. */
+export const SINGLES = 'Coups seuls';
+export const LINES = 'Lignes';
+export const openingDecks = (name: string) => ({
+  base: deckPath('Ouvertures', name),
+  singles: `${deckPath('Ouvertures', name)}${DECK_SEP}${SINGLES}`,
+  lines: `${deckPath('Ouvertures', name)}${DECK_SEP}${LINES}`,
+});

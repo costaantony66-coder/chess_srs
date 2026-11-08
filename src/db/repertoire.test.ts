@@ -129,7 +129,7 @@ describe('cartes-lignes', () => {
     await renameRepertoire(rep.id, 'Caro-Kann');
     const renamed = (await db.cards.where('repId').equals(rep.id).toArray()).filter((c) => c.lineMode);
     expect(renamed[0].deck).toBe('Ouvertures::Caro-Kann::Lignes');
-    expect((await db.cards.where('repId').equals(rep.id).toArray()).find((c) => !c.lineMode)!.deck).toBe('Ouvertures::Caro-Kann');
+    expect((await db.cards.where('repId').equals(rep.id).toArray()).find((c) => !c.lineMode)!.deck).toBe('Ouvertures::Caro-Kann::Coups seuls');
 
     const d5 = (await loadNodes(rep.id)).find((n) => n.san === 'd5')!;
     await deleteNode(d5.id);

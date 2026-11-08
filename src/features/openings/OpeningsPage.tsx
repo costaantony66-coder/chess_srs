@@ -3,6 +3,7 @@ import { Play, Plus, Trash2 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { createRepertoire, deleteRepertoire, listRepertoires, type RepertoireSummary } from '../../db/repertoire';
+import { ExternalSource } from './ExternalSource';
 import { RepertoireEditor } from './RepertoireEditor';
 import { TrainingSession } from './TrainingSession';
 
@@ -102,6 +103,8 @@ export function OpeningsPage({ onGoReview }: { onGoReview: () => void }) {
           <Plus size={18} /> Nouveau répertoire
         </Button>
       )}
+
+      <ExternalSource />
     </div>
   );
 }

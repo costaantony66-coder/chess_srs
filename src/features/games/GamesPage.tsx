@@ -3,6 +3,7 @@ import { Check, Star, Trash2 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { deleteGames, listGames, toggleFavorite, type GameRow } from '../../db/games';
+import { GameAnalysis } from './GameAnalysis';
 import { GameImport } from './GameImport';
 import { GameViewer } from './GameViewer';
 
@@ -62,6 +63,7 @@ export function GamesPage({ onGoReview }: { onGoReview: () => void }) {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
       <GameImport onDone={() => void refresh()} />
+      <GameAnalysis games={rows.filter((r) => !r.game.analysed).map((r) => r.game)} onDone={() => void refresh()} />
 
       <div>
         <div className="mb-2 flex flex-wrap items-center gap-2">

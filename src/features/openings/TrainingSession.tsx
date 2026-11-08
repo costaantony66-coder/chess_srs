@@ -1,15 +1,30 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, Lightbulb, Play, X } from 'lucide-react';
+import { ArrowLeft, Lightbulb, Play, Plus, X } from 'lucide-react';
+import { Chess } from 'chess.js';
 import type { DrawShape } from 'chessground/draw';
 import type { Key } from 'chessground/types';
 import { Board, type Feedback } from '../../components/board/Board';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { db, type RepNode, type Repertoire } from '../../db/db';
-import { formatLine, loadNodes, recordTraining, ROOT, START_FEN } from '../../db/repertoire';
+import { addMove, formatLine, loadNodes, recordTraining, ROOT, START_FEN } from '../../db/repertoire';
+import { fetchExplorer, getToken, pickWeighted, type ExplorerMove } from '../../lib/explorer';
 
-type Phase = 'loading' | 'opp' | 'user' | 'wrong' | 'end';
+type Phase = 'loading' | 'opp' | 'user' | 'wrong' | 'out' | 'end';
+
+/** Part des coups adverses tirés de Lichess (si un jeton est configuré) alors que ton arbre a des réponses. */
+const EXTERNAL_RATE = 0.25;
+
+interface Outside {
+  san: string;
+  from: string;
+  to: string;
+  promotion?: string;
+  fenAfter: string;
+  parentId: string;
+  share: number;
+}
 
 export function TrainingSession({ repId, onBack }: { repId: string; onBack: () => void }) {
   const [rep, setRep] = useState<Repertoire | null>(null);
@@ -20,6 +35,11 @@ export function TrainingSession({ repId, onBack }: { repId: string; onBack: () =
   const [syncKey, setSyncKey] = useState(0);
   const [hint, setHint] = useState(false);
   const [stats, setStats] = useState({ good: 0, bad: 0, lines: 0 });
+  const [outside, setOutside] = useState<Outside | null>(null);
+  const [added, setAdded] = useState(false);
+  const [extError, setExtError] = useState<string | null>(null);
+  const [token] = useState(getToken);
+  const started = useRef(false);
 
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   const children = useMemo(() => {
@@ -50,11 +70,17 @@ export function TrainingSession({ repId, onBack }: { repId: string; onBack: () =
     return (ply % 2 === 0) === (rep?.color === 'white');
   };
 
+  const endLine = () => {
+    setStats((s) => ({ ...s, lines: s.lines + 1 }));
+    setPhase('end');
+  };
+
   const advance = (id: string) => {
     const kids = children.get(id);
     if (!kids?.length) {
-      setStats((s) => ({ ...s, lines: s.lines + 1 }));
-      setPhase('end');
+      // Arbre fini : si c'est à l'adversaire et qu'une source externe est configurée, elle prend le relais.
+      if (!nextIsMine(id) && token) setPhase('opp');
+      else endLine();
       return;
     }
     setPhase(nextIsMine(id) ? 'user' : 'opp');
@@ -64,34 +90,83 @@ export function TrainingSession({ repId, onBack }: { repId: string; onBack: () =
     setCurrentId(ROOT);
     setHint(false);
     setFeedback(null);
+    setOutside(null);
+    setAdded(false);
     advance(ROOT);
   };
 
   useEffect(() => {
-    if (rep && nodes.length) startLine();
+    if (rep && nodes.length && !started.current) {
+      started.current = true;
+      startLine();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rep, nodes]);
 
-  // L'adversaire joue seul, au hasard parmi les réponses de ton arbre.
+  // L'adversaire joue seul : au hasard parmi ton arbre, parfois (ou si l'arbre est fini) d'après Lichess.
   useEffect(() => {
     if (phase !== 'opp') return;
-    const t = window.setTimeout(() => {
-      const kids = children.get(currentId)!;
+    let cancelled = false;
+    const t = window.setTimeout(async () => {
+      const kids = children.get(currentId) ?? [];
+      const here = byId.get(currentId);
+      const fenNow = here ? here.fenAfter : START_FEN;
+      let ext: ExplorerMove[] = [];
+      if (token && (kids.length === 0 || Math.random() < EXTERNAL_RATE)) {
+        try {
+          ext = await fetchExplorer(fenNow, token);
+          setExtError(null);
+        } catch (e) {
+          setExtError(e instanceof Error ? e.message : 'source externe indisponible');
+        }
+      }
+      if (cancelled) return;
+      if (ext.length) {
+        const pick = pickWeighted(ext);
+        const inTree = kids.find((k) => k.san === pick.san);
+        if (inTree) {
+          setCurrentId(inTree.id);
+          advance(inTree.id);
+          return;
+        }
+        try {
+          const chess = new Chess(fenNow);
+          const m = chess.move(pick.san);
+          setOutside({ san: m.san, from: m.from, to: m.to, promotion: m.promotion, fenAfter: chess.fen(), parentId: currentId, share: pick.share });
+          setAdded(false);
+          endLineOutside();
+          return;
+        } catch {
+          /* coup illisible : on retombe sur l'arbre */
+        }
+      }
+      if (!kids.length) {
+        endLine();
+        return;
+      }
       const pick = kids[Math.floor(Math.random() * kids.length)];
       setCurrentId(pick.id);
       advance(pick.id);
     }, 650);
-    return () => window.clearTimeout(t);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, currentId]);
 
+  const endLineOutside = () => {
+    setStats((s) => ({ ...s, lines: s.lines + 1 }));
+    setPhase('out');
+  };
+
   const current = byId.get(currentId);
   const kids = children.get(currentId) ?? [];
-  const fen = current ? current.fenAfter : START_FEN;
-  const lastMove = useMemo<[string, string] | undefined>(
-    () => (current ? [current.uci.slice(0, 2), current.uci.slice(2, 4)] : undefined),
-    [current],
-  );
+  const fen = outside ? outside.fenAfter : current ? current.fenAfter : START_FEN;
+  const lastMove = useMemo<[string, string] | undefined>(() => {
+    if (outside) return [outside.from, outside.to];
+    return current ? [current.uci.slice(0, 2), current.uci.slice(2, 4)] : undefined;
+  }, [current, outside]);
   const path = useMemo(() => {
     const p: RepNode[] = [];
     for (let n = current; n; n = byId.get(n.parentId)) p.unshift(n);
@@ -134,6 +209,15 @@ export function TrainingSession({ repId, onBack }: { repId: string; onBack: () =
     advance(next.id);
   };
 
+  const addOutside = async () => {
+    if (!outside) return;
+    const r = await addMove(repId, outside.parentId, outside.from, outside.to, outside.promotion ?? 'q');
+    if (r) {
+      setNodes(await loadNodes(repId));
+      setAdded(true);
+    }
+  };
+
   if (!rep) return null;
   if (nodes.length === 0) {
     return (
@@ -174,13 +258,18 @@ export function TrainingSession({ repId, onBack }: { repId: string; onBack: () =
 
         <div className="flex flex-col gap-3">
           <Card>
-            <p className="font-mono text-sm">{path.length ? formatLine(path) : 'Position de départ'}</p>
+            <p className="font-mono text-sm">
+              {path.length ? formatLine(path) : 'Position de départ'}
+              {outside && ` ${outside.san}`}
+            </p>
             <p className="mt-2 text-sm text-muted">
               {phase === 'opp' && 'L’adversaire joue…'}
               {phase === 'user' && 'À toi de jouer : trouve le coup de ton répertoire.'}
               {phase === 'wrong' && 'Mauvais coup.'}
+              {phase === 'out' && 'Hors répertoire.'}
               {phase === 'end' && 'Fin de la ligne.'}
             </p>
+            {extError && <p className="mt-2 text-sm text-warn">Source Lichess indisponible ({extError}) : entraînement avec ton arbre seul.</p>}
           </Card>
 
           <AnimatePresence mode="wait" initial={false}>
@@ -207,15 +296,32 @@ export function TrainingSession({ repId, onBack }: { repId: string; onBack: () =
             </Button>
           )}
 
+          {phase === 'out' && outside && (
+            <Card>
+              <h3 className="font-display text-xl">Position non préparée</h3>
+              <p className="mt-2 text-sm text-muted">
+                Ton adversaire a joué <strong className="text-fg">{outside.san}</strong> ({Math.round(outside.share * 100)} % des parties Lichess listées) : tu n’as pas de réponse préparée ici.
+              </p>
+              <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <Button onClick={() => void addOutside()} disabled={added}>
+                  <Plus size={16} /> {added ? 'Ajouté : prépare ta réponse' : 'Ajouter à mon répertoire'}
+                </Button>
+                <Button variant="primary" onClick={startLine}>Nouvelle ligne</Button>
+              </div>
+              {added && <p className="mt-2 text-sm text-good">Ouvre le répertoire dans l’éditeur pour jouer ta réponse à {outside.san}.</p>}
+              <Button className="mt-2 w-full" onClick={onBack}>Terminer</Button>
+            </Card>
+          )}
+
           {phase === 'end' && (
             <Card className="text-center">
               <h3 className="font-display text-xl">Fin du répertoire</h3>
               <p className="mt-2 text-sm text-muted">
                 Séance : {stats.lines} ligne{stats.lines > 1 ? 's' : ''}, {stats.good} coup{stats.good > 1 ? 's' : ''} juste{stats.good > 1 ? 's' : ''}, {stats.bad} erreur{stats.bad > 1 ? 's' : ''}.
               </p>
-              {!hasVariety && (
+              {!hasVariety && !token && (
                 <p className="mt-2 text-sm text-warn">
-                  Ton arbre n’a qu’une réponse adverse par position : ajoute des variantes adverses pour varier l’entraînement.
+                  Ton arbre n’a qu’une réponse adverse par position : ajoute des variantes adverses, ou configure la source Lichess dans l’onglet Ouvertures.
                 </p>
               )}
               <div className="mt-4 grid grid-cols-2 gap-2">

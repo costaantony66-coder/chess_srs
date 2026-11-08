@@ -1,7 +1,7 @@
 import { State } from 'ts-fsrs';
 import { db } from './db';
 import { bucketOf, endOfDay, startOfDay } from './queue';
-import { DECK_SEP, prefixes } from '../lib/decks';
+import { DECK_SEP, openingDecks, prefixes } from '../lib/decks';
 import { getNewPerDay } from '../lib/settings';
 
 export interface DeckNode {
@@ -37,8 +37,9 @@ const sortNodes = (nodes: DeckNode[], top: boolean) => {
 export async function loadDeckTree(now = new Date()): Promise<DeckTree> {
   const nowMs = now.getTime();
   const endMs = endOfDay(now).getTime();
-  const [cards, today] = await Promise.all([
+  const [cards, reps, today] = await Promise.all([
     db.cards.toArray(),
+    db.repertoires.toArray(),
     db.reviews.where('ts').aboveOrEqual(startOfDay(now).getTime()).toArray(),
   ]);
   const byId = new Map(cards.map((c) => [c.id, c]));
@@ -69,6 +70,12 @@ export async function loadDeckTree(now = new Date()): Promise<DeckTree> {
       else if (bucket === 'learning') n.learning++;
       else if (bucket === 'review') n.review++;
     }
+  }
+  // Chaque ouverture affiche toujours « Coups seuls » et « Lignes », même vides.
+  for (const rep of reps) {
+    const d = openingDecks(rep.name);
+    node(d.singles);
+    node(d.lines);
   }
   for (const r of today) {
     const c = byId.get(r.cardId);

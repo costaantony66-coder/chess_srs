@@ -139,6 +139,25 @@ export class ChessDB extends Dexie {
             if (!c.deck) c.deck = legacyDeck(c, { repName: c.repId ? reps.get(c.repId) : undefined, gameSource: c.gameId ? games.get(c.gameId) : undefined });
           });
       });
+    // v6 : coups isolés d'une ouverture dans le sous-paquet « Coups seuls » (frère de « Lignes »)
+    this.version(6)
+      .stores({
+        cards: 'id, type, due, state, createdAt, rating, repId, gameId, deck, *tags',
+        reviews: '++id, cardId, ts',
+        repertoires: 'id, createdAt',
+        repnodes: 'id, repId, [repId+parentId]',
+        games: 'id, source, importedAt',
+      })
+      .upgrade((tx) =>
+        tx
+          .table('cards')
+          .toCollection()
+          .modify((c: StoredCard) => {
+            if (c.source === 'repertoire' && !c.lineMode && c.deck.startsWith('Ouvertures::') && c.deck.split('::').length === 2) {
+              c.deck = `${c.deck}::Coups seuls`;
+            }
+          }),
+      );
   }
 }
 

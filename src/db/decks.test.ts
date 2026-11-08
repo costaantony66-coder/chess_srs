@@ -89,12 +89,50 @@ describe('migration vers les paquets', () => {
     const decks = Object.fromEntries((await migrated.cards.toArray()).map((c) => [c.id, c.deck]));
     expect(decks).toEqual({
       'demo-x': 'Démo',
-      'rep:r1:k': 'Ouvertures::Système de Londres',
+      'rep:r1:k': 'Ouvertures::Système de Londres::Coups seuls',
       'lichess-1': 'Puzzles::Fourchette',
       'err:g1:3': 'Parties::Chess.com',
       misc: 'Finales',
     });
     expect(await migrated.repertoires.count()).toBe(1);
     migrated.close();
+  });
+});
+
+describe('ouvertures : Coups seuls / Lignes', () => {
+  it('migration v6 : les coups isolés vont dans « Coups seuls », les lignes ne bougent pas', async () => {
+    const old = new Dexie('mig-v5');
+    old.version(5).stores({
+      cards: 'id, type, due, state, createdAt, rating, repId, gameId, deck, *tags',
+      reviews: '++id, cardId, ts',
+      repertoires: 'id, createdAt',
+      repnodes: 'id, repId, [repId+parentId]',
+      games: 'id, source, importedAt',
+    });
+    const base = { fen: 'x', solution: ['e2e4'], tags: [], createdAt: 1, due: 1, state: 0, fsrs: newFsrsCard(), type: 'opening', title: 't' };
+    await old.table('cards').bulkAdd([
+      { ...base, id: 'single', source: 'repertoire', repId: 'r1', deck: 'Ouvertures::Londres' },
+      { ...base, id: 'line', source: 'repertoire', repId: 'r1', lineMode: true, deck: 'Ouvertures::Londres::Lignes' },
+      { ...base, id: 'puzzle', type: 'tactic', source: 'lichess', deck: 'Puzzles::Fourchette' },
+    ]);
+    old.close();
+    const migrated = new ChessDB('mig-v5');
+    const decks = Object.fromEntries((await migrated.cards.toArray()).map((c) => [c.id, c.deck]));
+    expect(decks).toEqual({
+      single: 'Ouvertures::Londres::Coups seuls',
+      line: 'Ouvertures::Londres::Lignes',
+      puzzle: 'Puzzles::Fourchette',
+    });
+    migrated.close();
+  });
+
+  it('une ouverture sans carte affiche quand même ses deux sous-paquets', async () => {
+    await db.repertoires.clear();
+    await db.repertoires.add({ id: 'r9', name: 'Londres', color: 'white', createdAt: 1 });
+    const tree = await loadDeckTree();
+    const londres = tree.roots.find((n) => n.name === 'Ouvertures')!.children.find((n) => n.name === 'Londres')!;
+    expect(londres.children.map((c) => c.name).sort()).toEqual(['Coups seuls', 'Lignes']);
+    expect(londres.children.every((c) => c.total === 0)).toBe(true);
+    await db.repertoires.clear();
   });
 });
