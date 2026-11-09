@@ -8,9 +8,9 @@ export function useChessGame(initialFen?: string) {
   const refresh = () => setTick((t) => t + 1);
 
   /** Joue un coup (promotion automatique en dame pour l'instant). Retourne null si illégal. */
-  const play = useCallback((from: string, to: string): Move | null => {
+  const play = useCallback((from: string, to: string, promotion = 'q'): Move | null => {
     try {
-      const move = chess.current.move({ from, to, promotion: 'q' });
+      const move = chess.current.move({ from, to, promotion });
       refresh();
       return move;
     } catch {
@@ -42,6 +42,7 @@ export function useChessGame(initialFen?: string) {
     isCheckmate: c.isCheckmate(),
     isDraw: c.isDraw(),
     isGameOver: c.isGameOver(),
+    isStalemate: c.isStalemate(),
     play,
     undo,
     reset,

@@ -90,7 +90,7 @@ export interface GameAnalysis {
 
 export interface Game {
   id: string;
-  source: 'lichess' | 'chesscom' | 'pgn';
+  source: 'lichess' | 'chesscom' | 'pgn' | 'bot';
   white: string;
   black: string;
   myColor: 'white' | 'black';

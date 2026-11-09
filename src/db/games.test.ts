@@ -110,3 +110,24 @@ describe('favoris et suppression groupée', () => {
     expect(await db.cards.count()).toBe(0);
   });
 });
+
+describe('parties contre le bot', () => {
+  it('s’enregistre comme une partie normale et range ses futures cartes dans « Contre le bot »', async () => {
+    const g: ParsedGame = {
+      id: 'bot:1',
+      source: 'bot',
+      white: 'Moi',
+      black: 'Stockfish (~1200)',
+      myColor: 'white',
+      result: '0-1',
+      playedAt: 1,
+      moves: ['f3', 'e5', 'g4', 'Qh4#'],
+      analysed: false,
+      errors: [{ ply: 3, severity: 'Blunder', bestUci: 'e2e4' }],
+    };
+    const r = await saveParsedGames([g], new Set(['Blunder']));
+    expect(r).toMatchObject({ newGames: 1, cards: 1 });
+    expect((await db.games.get('bot:1'))!.source).toBe('bot');
+    expect((await db.cards.toArray())[0].deck).toBe('Parties::Contre le bot');
+  });
+});

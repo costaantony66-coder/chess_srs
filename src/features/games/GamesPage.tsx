@@ -7,7 +7,7 @@ import { GameAnalysis } from './GameAnalysis';
 import { GameImport } from './GameImport';
 import { GameViewer } from './GameViewer';
 
-const SOURCE = { lichess: 'Lichess', chesscom: 'Chess.com', pgn: 'PGN' } as const;
+const SOURCE = { lichess: 'Lichess', chesscom: 'Chess.com', pgn: 'PGN', bot: 'Bot' } as const;
 
 export function GamesPage({ onGoReview }: { onGoReview: () => void }) {
   const [rows, setRows] = useState<GameRow[] | null>(null);

@@ -1,83 +1,44 @@
 import { useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { RefreshCw, RotateCcw, Undo2 } from 'lucide-react';
-import { Board, type Feedback } from '../../components/board/Board';
-import { Button } from '../../components/ui/Button';
-import { Card } from '../../components/ui/Card';
-import { useChessGame } from '../../hooks/useChessGame';
+import { Bot, Users, type LucideIcon } from 'lucide-react';
+import { BotGame } from './BotGame';
+import { TwoSides } from './TwoSides';
 
+type Mode = 'two' | 'bot';
+
+const MODES: { id: Mode; label: string; hint: string; icon: LucideIcon }[] = [
+  { id: 'two', label: 'Deux côtés', hint: 'Tu joues les deux camps', icon: Users },
+  { id: 'bot', label: 'Contre un bot', hint: 'Choisis son Elo', icon: Bot },
+];
+
+/** Onglet Plateau : deux boutons à gauche (deux côtés / bot), l'échiquier à droite. */
 export function Playground() {
-  const game = useChessGame();
-  const [orientation, setOrientation] = useState<'white' | 'black'>('white');
-  const [feedback, setFeedback] = useState<Feedback | null>(null);
-
-  const handleMove = (from: string, to: string) => {
-    const move = game.play(from, to);
-    if (!move) return;
-    const kind = move.san.endsWith('#') ? 'good' : move.san.endsWith('+') ? 'warn' : null;
-    if (kind) setFeedback({ kind, id: Date.now() });
-  };
-
-  const status = game.isCheckmate
-    ? `Échec et mat — ${game.turn === 'w' ? 'les noirs' : 'les blancs'} gagnent`
-    : game.isDraw
-      ? 'Partie nulle'
-      : `${game.turn === 'w' ? 'Aux blancs' : 'Aux noirs'} de jouer${game.inCheck ? ' · échec' : ''}`;
-
+  const [mode, setMode] = useState<Mode>('two');
   return (
-    <div className="mx-auto grid w-full max-w-5xl gap-4 lg:grid-cols-[minmax(0,640px)_1fr]">
-      <div className="mx-auto w-full max-w-[min(100%,calc(100dvh-16rem))] lg:max-w-none">
-        <Board
-          fen={game.fen}
-          orientation={orientation}
-          lastMove={game.lastMove}
-          onMove={handleMove}
-          feedback={feedback}
-        />
-      </div>
+    <div className="mx-auto grid w-full max-w-6xl gap-4 md:grid-cols-[190px_minmax(0,1fr)]">
+      <aside className="grid grid-cols-2 gap-2 md:grid-cols-1 md:content-start">
+        {MODES.map(({ id, label, hint, icon: Icon }) => {
+          const active = mode === id;
+          return (
+            <button
+              key={id}
+              onClick={() => setMode(id)}
+              aria-pressed={active}
+              className={`flex min-h-14 flex-col items-start justify-center gap-0.5 rounded-2xl border px-4 py-2 text-left transition active:scale-[0.98] ${
+                active ? 'border-accent bg-accent text-accent-fg' : 'border-border bg-surface text-fg hover:bg-surface-2'
+              }`}
+            >
+              <span className="flex items-center gap-2 font-medium">
+                <Icon size={18} /> {label}
+              </span>
+              <span className={`hidden text-xs md:block ${active ? 'opacity-80' : 'text-muted'}`}>{hint}</span>
+            </button>
+          );
+        })}
+      </aside>
 
-      <div className="flex flex-col gap-4">
-        <Card>
-          <p className="font-display text-lg">{status}</p>
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            <Button onClick={() => setOrientation((o) => (o === 'white' ? 'black' : 'white'))}>
-              <RefreshCw size={16} /> Retourner
-            </Button>
-            <Button onClick={game.undo} disabled={game.history.length === 0}>
-              <Undo2 size={16} /> Annuler
-            </Button>
-            <Button onClick={game.reset} disabled={game.history.length === 0}>
-              <RotateCcw size={16} /> Reset
-            </Button>
-          </div>
-        </Card>
-
-        <Card className="min-h-24">
-          <p className="mb-2 text-sm text-muted">Coups</p>
-          {game.history.length === 0 ? (
-            <p className="text-sm text-muted">Joue un coup sur l’échiquier.</p>
-          ) : (
-            <ol className="flex flex-wrap gap-x-3 gap-y-1 font-mono text-sm">
-              <AnimatePresence initial={false}>
-                {game.history.map((m, i) => (
-                  <motion.li
-                    key={i}
-                    layout
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    className={i === game.history.length - 1 ? 'font-semibold text-accent' : ''}
-                  >
-                    {i % 2 === 0 && <span className="mr-1 text-muted">{i / 2 + 1}.</span>}
-                    {m.san}
-                  </motion.li>
-                ))}
-              </AnimatePresence>
-            </ol>
-          )}
-        </Card>
-
-      </div>
+      <section key={mode} className="min-w-0">
+        {mode === 'two' ? <TwoSides /> : <BotGame />}
+      </section>
     </div>
   );
 }
