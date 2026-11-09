@@ -25,6 +25,8 @@ src/
   features/review/       # session de révision : carte, notes, sauvegarde (phase 2)
   db/                    # Dexie : cartes, journal de révisions, file du jour, export/import
   features/openings/     # répertoires : arbre de variantes, éditeur, import PGN (phase 4)
+  features/playground/   # Plateau : deux côtés ou bot Stockfish à Elo réglable (phase 7B)
+  features/tuto/         # rubrique Tuto (aide en en-tête + bandeau de bienvenue)
   features/stats/        # série, heatmap, courbe de rétention (phase 6A)
   features/games/        # import Lichess / Chess.com / PGN, visionneuse, cartes d'erreurs (phase 5)
   features/puzzles/      # import de puzzles par thème et Elo (phase 3)
@@ -34,6 +36,13 @@ src/
   index.css              # tokens (clair/sombre), thème de l'échiquier
 .github/workflows/       # déploiement GitHub Pages
 ```
+
+## Plateau : bot
+
+Le mode « Contre un bot » utilise Stockfish (même moteur que l'analyse). À partir de 1320 Elo, le réglage d'Elo
+du moteur (`UCI_LimitStrength` / `UCI_Elo`, jusqu'à 3190) limite sa force ; en dessous, niveau de compétence 0,
+recherche très courte et coups au hasard de plus en plus fréquents (`src/lib/bot.ts`). Les Elo sont **approximatifs**.
+Une partie terminée peut être enregistrée dans « Mes parties » puis analysée.
 
 ## Analyse Stockfish
 
@@ -110,7 +119,7 @@ Push sur `main` → GitHub Actions build et publie sur GitHub Pages
 - [x] 6A. Paquets façon Anki, cartes-lignes, favoris et suppression groupée, statistiques
 - [x] 6B. Navigation par paquets (Coups seuls / Lignes), Stockfish, PWA hors ligne
 - [x] 7A. Analyse complète façon Chess.com (catégories, précision, barre et courbe d'évaluation), choix du nombre de parties, import simplifié
-- [ ] 7B. Plateau avec bot (choix de l'Elo), rubrique Tuto
+- [x] 7B. Plateau avec bot (choix de l'Elo), rubrique Tuto
 
 ## Workflow Git
 

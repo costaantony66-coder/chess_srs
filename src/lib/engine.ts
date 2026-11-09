@@ -57,7 +57,29 @@ export class Uci implements Evaluator {
     await ready;
   }
 
+  /** Règle une option UCI puis attend que le moteur soit prêt. */
+  async setOption(name: string, value: string | number | boolean) {
+    this.transport.send(`setoption name ${name} value ${value}`);
+    await this.isReady();
+  }
+
+  async isReady() {
+    const ready = this.waitFor((l) => l === 'readyok');
+    this.transport.send('isready');
+    await ready;
+  }
+
+  async newGame() {
+    this.transport.send('ucinewgame');
+    await this.isReady();
+  }
+
   analyse(fen: string, depth: number): Promise<Evaluation> {
+    return this.search(fen, `depth ${depth}`);
+  }
+
+  /** Lance une recherche (`go <args>` : « depth 12 », « movetime 500 »…) et attend le meilleur coup. */
+  search(fen: string, goArgs: string): Promise<Evaluation> {
     return new Promise((resolve) => {
       const scores = new Map<number, number>(); // numéro de ligne (multipv) -> dernière évaluation
       const l = (line: string) => {
@@ -72,7 +94,7 @@ export class Uci implements Evaluator {
       };
       this.listeners.add(l);
       this.transport.send(`position fen ${fen}`);
-      this.transport.send(`go depth ${depth}`);
+      this.transport.send(`go ${goArgs}`);
     });
   }
 

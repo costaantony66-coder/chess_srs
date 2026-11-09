@@ -4,7 +4,7 @@ export const DECK_SEP = '::';
 const clean = (s: string) => s.replaceAll(DECK_SEP, ':').trim() || 'Sans nom';
 export const deckPath = (...parts: string[]) => parts.map(clean).join(DECK_SEP);
 
-export const SOURCE_LABEL: Record<string, string> = { lichess: 'Lichess', chesscom: 'Chess.com', pgn: 'PGN' };
+export const SOURCE_LABEL: Record<string, string> = { lichess: 'Lichess', chesscom: 'Chess.com', pgn: 'PGN', bot: 'Contre le bot' };
 
 /** La carte appartient-elle au paquet (ou à l'un de ses sous-paquets) ? */
 export const inDeck = (cardDeck: string | undefined, scope: string) =>

@@ -17,7 +17,7 @@ export interface GameError {
 
 export interface ParsedGame {
   id: string;
-  source: 'lichess' | 'chesscom' | 'pgn';
+  source: 'lichess' | 'chesscom' | 'pgn' | 'bot';
   white: string;
   black: string;
   myColor: 'white' | 'black';
