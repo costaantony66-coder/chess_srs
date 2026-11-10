@@ -11,6 +11,7 @@ import { RatingButtons } from '../../components/ui/RatingButtons';
 import type { StoredCard } from '../../db/db';
 import { themeLabel } from '../../data/themes';
 import { previewIntervals, type RatingId } from '../../lib/fsrs';
+import { playSound, soundForSan, vibrate } from '../../lib/sounds';
 
 type Phase = 'playing' | 'busy' | 'wrong' | 'solved';
 
@@ -70,6 +71,7 @@ export function CardRunner({ card, onRate }: Props) {
       const rm = chess.current.move({ from: reply.slice(0, 2), to: reply.slice(2, 4), promotion: reply[4] });
       setFen(chess.current.fen());
       setLastMove([rm.from, rm.to]);
+      playSound(next + 1 >= card.solution.length ? 'success' : soundForSan(rm.san));
       setIdx(next + 1);
       setPhase(next + 1 >= card.solution.length ? 'solved' : 'playing');
     }, 450);
@@ -103,6 +105,8 @@ export function CardRunner({ card, onRate }: Props) {
     if (!accepted) {
       chess.current.undo();
       setFeedback({ kind: 'bad', id: Date.now() });
+      playSound('error');
+      vibrate(40);
       setSyncKey((k) => k + 1);
       if (lineMode) setMistakes((m) => m + 1);
       setPhase('wrong');
@@ -114,6 +118,7 @@ export function CardRunner({ card, onRate }: Props) {
     setFeedback({ kind: 'good', id: Date.now() });
     const next = idx + 1;
     setIdx(next);
+    playSound(mate || next >= card.solution.length ? 'success' : soundForSan(move.san));
 
     if (mate || next >= card.solution.length) {
       setPhase('solved');
@@ -136,6 +141,37 @@ export function CardRunner({ card, onRate }: Props) {
             : undefined
         : [];
   const userMoves = Math.ceil(card.solution.length / 2);
+
+  // Raccourcis clavier : 1 à 4 = noter, Espace / Entrée = continuer ou noter « Good », H = indice.
+  const onKey = useRef<(e: KeyboardEvent) => void>(() => undefined);
+  onKey.current = (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if ((e.target as HTMLElement | null)?.closest?.('input, textarea, select, [contenteditable]')) return;
+    const ratingVisible = (phase === 'wrong' && !lineMode) || phase === 'solved';
+    const byKey: Record<string, RatingId> = { '1': 'again', '2': 'hard', '3': 'good', '4': 'easy' };
+    const allowed = (r: RatingId) => !enabled || enabled.includes(r);
+    if (ratingVisible && byKey[e.key]) {
+      if (allowed(byKey[e.key])) {
+        e.preventDefault();
+        rate(byKey[e.key]);
+      }
+    } else if (e.key === ' ' || e.key === 'Enter') {
+      if (phase === 'wrong' && lineMode) {
+        e.preventDefault();
+        continueLine();
+      } else if (ratingVisible) {
+        e.preventDefault();
+        rate(allowed('good') ? 'good' : 'again');
+      }
+    } else if ((e.key === 'h' || e.key === 'H') && phase === 'playing' && !hint) {
+      setHint(true);
+    }
+  };
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => onKey.current(e);
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,640px)_1fr]">
@@ -205,7 +241,7 @@ export function CardRunner({ card, onRate }: Props) {
 
         {(phase === 'playing' || phase === 'busy') && (
           <Button onClick={() => setHint(true)} disabled={hint || phase !== 'playing'}>
-            <Lightbulb size={16} /> Indice
+            <Lightbulb size={16} /> Indice <span className="hidden text-xs opacity-60 md:inline">(H)</span>
           </Button>
         )}
 
@@ -216,7 +252,7 @@ export function CardRunner({ card, onRate }: Props) {
         )}
 
         {((phase === 'wrong' && !lineMode) || phase === 'solved') && (
-          <RatingButtons onRate={rate} enabled={enabled} intervals={intervals} />
+          <RatingButtons onRate={rate} enabled={enabled} intervals={intervals} showKeys />
         )}
       </div>
     </div>

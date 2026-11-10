@@ -9,6 +9,7 @@ import { useChessGame } from '../../hooks/useChessGame';
 import { usePersistentState } from '../../hooks/usePersistentState';
 import { BOT_MAX_ELO, BOT_MIN_ELO, botMove, prepareBot } from '../../lib/bot';
 import { Uci, stockfishWorker } from '../../lib/engine';
+import { playSound, soundForSan } from '../../lib/sounds';
 import { MoveList } from './TwoSides';
 
 const PRESETS = [600, 800, 1000, 1200, 1500, 1800, 2000, 2400, 2800];
@@ -77,6 +78,7 @@ export function BotGame() {
         const [uci] = await Promise.all([botMove(e, fen, elo), new Promise((r) => setTimeout(r, 400))]);
         if (forGame !== token.current) return;
         const move = game.play(uci.slice(0, 2), uci.slice(2, 4), uci[4] ?? 'q');
+        if (move) playSound(move.san.endsWith('#') ? 'end' : soundForSan(move.san));
         if (move?.san.endsWith('+') || move?.san.endsWith('#')) setFeedback({ kind: move.san.endsWith('#') ? 'bad' : 'warn', id: Date.now() });
       } catch {
         if (forGame === token.current) setError('Impossible de lancer Stockfish. Vérifie ta connexion au premier lancement (le moteur de 2 Mo est ensuite gardé en cache).');
@@ -113,6 +115,7 @@ export function BotGame() {
     if (!myTurn || thinking) return;
     const move = game.play(from, to);
     if (!move) return;
+    playSound(move.san.endsWith('#') ? 'end' : soundForSan(move.san));
     if (move.san.endsWith('#')) {
       setFeedback({ kind: 'good', id: Date.now() });
       return;
@@ -131,6 +134,7 @@ export function BotGame() {
     token.current++;
     setThinking(false);
     setResigned(true);
+    playSound('end');
   };
 
   const result = resigned
@@ -168,7 +172,7 @@ export function BotGame() {
     ? 'Choisis ta couleur et l’Elo du bot, puis lance la partie.'
     : over
       ? verdict
-      : thinking
+      : thinking || !myTurn
         ? 'Le bot réfléchit…'
         : `À toi de jouer (${side === 'white' ? 'blancs' : 'noirs'})${game.inCheck ? ' · échec' : ''}`;
 

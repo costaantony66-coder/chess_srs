@@ -69,16 +69,21 @@ export function Board({
       turnColor: turn,
       check: chess.inCheck(),
       lastMove: lastMove as Key[] | undefined,
-      viewOnly,
       coordinates: true,
+      // On n'utilise PAS l'option `viewOnly` de chessground : quand l'orientation change pendant qu'elle est vraie,
+      // chessground recrée le plateau sans réattacher les clics (on ne pouvait alors plus jouer les noirs contre le bot).
+      // La lecture seule est obtenue en retirant les droits de déplacement et de sélection.
+      viewOnly: false,
+      selectable: { enabled: !viewOnly },
+      draggable: { enabled: !viewOnly, showGhost: true },
+      premovable: { enabled: false },
       movable: {
         free: false,
         color: viewOnly ? undefined : turn,
         dests: viewOnly ? new Map() : toDests(chess),
-        showDests: true,
+        showDests: !viewOnly,
         events: { after: (from, to) => onMoveRef.current?.(from, to) },
       },
-      draggable: { showGhost: true },
     });
     api.current?.setAutoShapes(shapes ?? []);
   }, [fen, orientation, lastMove, viewOnly, shapes, syncKey]);

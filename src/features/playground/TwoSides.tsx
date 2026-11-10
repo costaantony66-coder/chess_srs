@@ -5,6 +5,7 @@ import { Board, type Feedback } from '../../components/board/Board';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { useChessGame } from '../../hooks/useChessGame';
+import { playSound, soundForSan } from '../../lib/sounds';
 
 /** Plateau libre : tu joues les deux camps, tu peux retourner l'échiquier. */
 export function TwoSides() {
@@ -15,6 +16,7 @@ export function TwoSides() {
   const handleMove = (from: string, to: string) => {
     const move = game.play(from, to);
     if (!move) return;
+    playSound(soundForSan(move.san));
     const kind = move.san.endsWith('#') ? 'good' : move.san.endsWith('+') ? 'warn' : null;
     if (kind) setFeedback({ kind, id: Date.now() });
   };

@@ -1,3 +1,4 @@
+import { markBackupDone } from '../lib/backupReminder';
 import { legacyDeck } from '../lib/decks';
 import { db, type Game, type RepNode, type Repertoire, type ReviewLog, type StoredCard } from './db';
 
@@ -12,7 +13,8 @@ interface BackupFile {
   games?: Game[];
 }
 
-export async function exportData() {
+/** Contenu complet de la sauvegarde (cartes, révisions, répertoires, parties…) au format JSON. */
+export async function buildBackup(): Promise<{ json: string; filename: string }> {
   const [cards, reviews, repertoires, repnodes, games] = await Promise.all([
     db.cards.toArray(),
     db.reviews.toArray(),
@@ -30,12 +32,38 @@ export async function exportData() {
     repnodes,
     games,
   };
-  const url = URL.createObjectURL(new Blob([JSON.stringify(file)], { type: 'application/json' }));
+  return { json: JSON.stringify(file), filename: `chess-srs-${new Date().toISOString().slice(0, 10)}.json` };
+}
+
+/** Y a-t-il des données à protéger ? */
+export async function hasData(): Promise<boolean> {
+  const [c, g, r] = await Promise.all([db.cards.count(), db.games.count(), db.repertoires.count()]);
+  return c + g + r > 0;
+}
+
+export async function exportData() {
+  const { json, filename } = await buildBackup();
+  const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
   const a = document.createElement('a');
   a.href = url;
-  a.download = `chess-srs-${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+  markBackupDone();
+}
+
+/** Partage la sauvegarde via la feuille de partage du téléphone (Drive, iCloud, mail…). */
+export async function shareBackup(): Promise<'shared' | 'cancelled' | 'unsupported'> {
+  const { json, filename } = await buildBackup();
+  const file = new File([json], filename, { type: 'application/json' });
+  if (!navigator.canShare?.({ files: [file] })) return 'unsupported';
+  try {
+    await navigator.share({ files: [file], title: 'Sauvegarde Chess SRS' });
+    markBackupDone();
+    return 'shared';
+  } catch (e) {
+    return e instanceof DOMException && e.name === 'AbortError' ? 'cancelled' : 'unsupported';
+  }
 }
 
 /** Fusionne une sauvegarde : les cartes de même id sont remplacées. Retourne le nombre de cartes importées. */

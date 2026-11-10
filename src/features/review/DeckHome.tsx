@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ChevronRight, Layers } from 'lucide-react';
+import { ChevronRight, Layers, Search } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { seedDeck } from '../../data/seed';
 import { loadDeckTree, type DeckNode, type DeckTree } from '../../db/decks';
 import { DECK_SEP } from '../../lib/decks';
 import { getNewPerDay, setNewPerDay } from '../../lib/settings';
-import { Backup } from './Backup';
+import { BackupReminder } from './BackupReminder';
+import { DataSafety } from './DataSafety';
 
 type Counts = { new: number; learning: number; review: number };
 
@@ -41,9 +42,10 @@ type Props = {
   level: string | null;
   onLevel: (path: string | null) => void;
   onStudy: (deck: string | null, title: string) => void;
+  onBrowse: (deck: string | null) => void;
 };
 
-export function DeckHome({ level, onLevel, onStudy }: Props) {
+export function DeckHome({ level, onLevel, onStudy, onBrowse }: Props) {
   const [tree, setTree] = useState<DeckTree | null>(null);
   const [perDay, setPerDay] = useState(getNewPerDay);
 
@@ -71,10 +73,13 @@ export function DeckHome({ level, onLevel, onStudy }: Props) {
   const rows = current ? current.children : tree.roots;
   const crumbs = level ? level.split(DECK_SEP).map((name, i, a) => ({ name, path: a.slice(0, i + 1).join(DECK_SEP) })) : [];
   const head: Counts & { total: number } = current ?? tree.all;
+  const budgetTop = level ? level.split(DECK_SEP)[0] : null;
+  const budget = budgetTop && tree.budgets[budgetTop] && current && current.children.length > 0 ? { name: budgetTop, ...tree.budgets[budgetTop] } : null;
   const headTitle = current ? current.path.replaceAll(DECK_SEP, ' › ') : 'Toutes les cartes';
 
   return (
     <div className="mx-auto w-full max-w-2xl">
+      {!level && <BackupReminder />}
       {tree.all.total === 0 && tree.roots.length === 0 ? (
         <Card className="text-center">
           <h2 className="font-display text-2xl">Aucune carte</h2>
@@ -99,6 +104,13 @@ export function DeckHome({ level, onLevel, onStudy }: Props) {
             ))}
           </nav>
 
+          {budget && (
+            <p className="mb-3 rounded-xl bg-surface-2 px-3 py-2 text-sm text-muted">
+              Aujourd’hui dans « {budget.name} » : <strong className="text-fg">{budget.left}</strong> nouvelle{budget.left > 1 ? 's' : ''} carte{budget.left > 1 ? 's' : ''} à voir sur {budget.limit}
+              {budget.done > 0 && ` (${budget.done} déjà vue${budget.done > 1 ? 's' : ''})`}. Elles se partagent entre les sous-paquets : le total affiché en haut est donc plus petit que la somme des lignes.
+            </p>
+          )}
+
           <Button
             variant="primary"
             className="w-full justify-between"
@@ -114,6 +126,10 @@ export function DeckHome({ level, onLevel, onStudy }: Props) {
               <span>{head.learning}</span>
               <span>{head.review}</span>
             </span>
+          </Button>
+
+          <Button className="mt-2 w-full" onClick={() => onBrowse(current ? current.path : null)}>
+            <Search size={16} /> Parcourir {current ? 'ce paquet' : 'les cartes'}
           </Button>
 
           <Card className="mt-3 py-2">
@@ -154,7 +170,7 @@ export function DeckHome({ level, onLevel, onStudy }: Props) {
       {!level && (
         <>
           <Card className="mt-6 flex items-center justify-between gap-3">
-            <p className="text-sm">Nouvelles cartes par jour et par paquet</p>
+            <p className="text-sm">Nouvelles cartes par jour et par catégorie (Ouvertures, Puzzles…)</p>
             <div className="flex items-center gap-2">
               <Button onClick={() => changePerDay(-5)} disabled={perDay <= 0} aria-label="Moins" className="w-11 px-0">
                 −
@@ -166,7 +182,7 @@ export function DeckHome({ level, onLevel, onStudy }: Props) {
             </div>
           </Card>
 
-          <Backup onImported={() => void refresh()} />
+          <DataSafety onImported={() => void refresh()} />
         </>
       )}
     </div>

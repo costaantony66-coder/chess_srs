@@ -16,12 +16,14 @@ type Props = {
   enabled?: RatingId[];
   /** Délai avant la prochaine révision, affiché sous chaque note. */
   intervals?: Record<RatingId, string>;
+  /** Affiche la touche du clavier (1 à 4) sous chaque note, sur ordinateur. */
+  showKeys?: boolean;
 };
 
-export function RatingButtons({ onRate, disabled, enabled, intervals }: Props) {
+export function RatingButtons({ onRate, disabled, enabled, intervals, showKeys }: Props) {
   return (
     <div className="grid grid-cols-4 gap-2">
-      {RATINGS.map((r) => (
+      {RATINGS.map((r, i) => (
         <Button
           key={r.id}
           variant={r.variant}
@@ -31,6 +33,7 @@ export function RatingButtons({ onRate, disabled, enabled, intervals }: Props) {
         >
           <span>{r.label}</span>
           {intervals && <span className="text-xs font-normal opacity-70">{intervals[r.id]}</span>}
+          {showKeys && <span className="hidden text-[10px] font-normal opacity-60 md:block">touche {i + 1}</span>}
         </Button>
       ))}
     </div>

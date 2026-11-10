@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { db, type RepNode, type Repertoire } from '../../db/db';
 import { formatLine, loadNodes, recordTraining, ROOT, START_FEN } from '../../db/repertoire';
+import { playSound, soundForSan, vibrate } from '../../lib/sounds';
 
 type Phase = 'loading' | 'opp' | 'user' | 'wrong' | 'end';
 
@@ -55,6 +56,7 @@ export function TrainingSession({ repId, onBack }: { repId: string; onBack: () =
     const kids = children.get(id);
     if (!kids?.length) {
       setStats((s) => ({ ...s, lines: s.lines + 1 }));
+      playSound('end');
       setPhase('end');
       return;
     }
@@ -82,6 +84,7 @@ export function TrainingSession({ repId, onBack }: { repId: string; onBack: () =
     const t = window.setTimeout(() => {
       const kids = children.get(currentId)!;
       const pick = kids[Math.floor(Math.random() * kids.length)];
+      playSound(soundForSan(pick.san));
       setCurrentId(pick.id);
       advance(pick.id);
     }, 650);
@@ -119,6 +122,7 @@ export function TrainingSession({ repId, onBack }: { repId: string; onBack: () =
       setStats((s) => ({ ...s, good: s.good + 1 }));
       void recordTraining(repId, hit, hint ? 'hint' : 'good');
       setFeedback({ kind: 'good', id: Date.now() });
+      playSound(soundForSan(hit.san));
       setHint(false);
       setCurrentId(hit.id);
       advance(hit.id);
@@ -126,6 +130,8 @@ export function TrainingSession({ repId, onBack }: { repId: string; onBack: () =
       setStats((s) => ({ ...s, bad: s.bad + 1 }));
       void recordTraining(repId, kids[0], 'wrong');
       setFeedback({ kind: 'bad', id: Date.now() });
+      playSound('error');
+      vibrate(40);
       setSyncKey((k) => k + 1);
       setPhase('wrong');
     }

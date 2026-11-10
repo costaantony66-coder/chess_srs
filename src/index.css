@@ -66,7 +66,14 @@ body {
   background: repeating-conic-gradient(var(--sq-dark) 0% 25%, var(--sq-light) 0% 50%) 0 0 / 25% 25%;
   border-radius: 12px;
 }
-.cg-wrap coords { color: var(--sq-dark); font-weight: 600; font-size: 10px; }
+/* Coordonnées : blanc cerclé de sombre, lisible aussi bien sur les cases claires que sombres. */
+.cg-wrap coords {
+  color: #fff;
+  opacity: 1;
+  font-weight: 700;
+  font-size: 10px;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.95), 0 0 2px rgba(0, 0, 0, 0.95), 0 0 4px rgba(0, 0, 0, 0.6);
+}
 .cg-wrap coords.ranks { right: 2px; }
 .cg-wrap square.last-move { background-color: color-mix(in srgb, var(--warn) 45%, transparent); }
 .cg-wrap square.selected { background-color: color-mix(in srgb, var(--accent) 55%, transparent); }

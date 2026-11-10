@@ -33,6 +33,7 @@ jobs:
       - run: npm run build
         env:
           VITE_BASE: /${{ github.event.repository.name }}/
+          VITE_REPO_URL: https://github.com/${{ github.repository }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

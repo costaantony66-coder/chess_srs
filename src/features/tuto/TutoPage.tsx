@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { CLASS_META, CLASS_ORDER } from '../../lib/analysis';
 import type { TabId } from '../../lib/tabs';
+import { About } from '../about/About';
 
 function Section({ title, children, open }: { title: string; children: ReactNode; open?: boolean }) {
   return (
@@ -83,6 +84,15 @@ export function TutoPage({ onGo }: { onGo: (t: TabId) => void }) {
           <li>« Indice » entoure la pièce à jouer, mais bloque alors « Easy ». Après une erreur, seul « Again » est possible.</li>
           <li>Un mat est accepté même s’il diffère du coup prévu.</li>
         </Ul>
+        <p><Term>Au clavier (ordinateur)</Term> :</p>
+        <Ul>
+          <li><Term>1, 2, 3, 4</Term> : noter Again, Hard, Good, Easy. <Term>Espace</Term> ou <Term>Entrée</Term> : « Good » (ou « Continuer la ligne »).</li>
+          <li><Term>H</Term> : indice. <Term>U</Term> ou <Term>Ctrl+Z</Term> : annuler la dernière note. <Term>Échap</Term> : quitter la révision.</li>
+        </Ul>
+        <p><Term>Sons</Term> : un son accompagne chaque coup, chaque erreur et chaque réussite. Le bouton haut-parleur en haut de l’écran les coupe (et coupe aussi les vibrations sur mobile).</p>
+        <p>
+          Pendant une révision, tu peux aussi <Term>annuler la note</Term> que tu viens de donner, <Term>suspendre</Term> une carte (elle n’est plus proposée) ou la <Term>supprimer</Term>.
+        </p>
         <p>
           Le calcul des dates est fait par l’algorithme <Term>FSRS</Term>, l’un des plus fiables : il s’adapte à ta mémoire, carte par carte.
         </p>
@@ -100,7 +110,12 @@ export function TutoPage({ onGo }: { onGo: (t: TabId) => void }) {
           <li>Touche un paquet : s’il contient des sous-paquets, tu descends d’un niveau (le fil d’Ariane en haut permet de remonter). Sinon, la révision démarre.</li>
           <li>« Tout réviser » (ou « Réviser tout … ») lance toutes les cartes du niveau affiché.</li>
           <li>Trois chiffres par paquet : <Term>Nouvelles</Term> (jamais vues), <Term>Apprentissage</Term> (en cours de mémorisation, à revoir dans quelques minutes) et <Term>À revoir</Term> (à réviser aujourd’hui).</li>
-          <li>Pour ne pas te noyer, il y a une limite de nouvelles cartes par jour et par paquet (réglable en bas de l’écran).</li>
+          <li>Pour ne pas te noyer, il y a une limite de nouvelles cartes par jour pour chaque catégorie (Ouvertures, Puzzles, Parties…), partagée entre ses sous-paquets et réglable en bas de l’écran.</li>
+        </Ul>
+        <Ul>
+          <li>
+            <Term>Parcourir les cartes</Term> : recherche et filtres (nouvelles, en apprentissage, à revoir, suspendues). Tu peux sélectionner plusieurs cartes pour les suspendre, les réactiver, les déplacer vers un autre paquet ou les supprimer. Les cartes d’un répertoire se gèrent dans l’éditeur du répertoire : ici, tu peux seulement les suspendre.
+          </li>
         </Ul>
         <Go tab="review" onGo={onGo}>Ouvrir Réviser</Go>
       </Section>
@@ -184,8 +199,15 @@ export function TutoPage({ onGo }: { onGo: (t: TabId) => void }) {
       <Section title="Questions fréquentes">
         <p><Term>Où sont mes données ?</Term> Uniquement sur cet appareil, dans ton navigateur. Rien n’est envoyé sur un serveur (sauf quand tu télécharges des parties depuis Lichess ou Chess.com).</p>
         <p>
-          <Term>Comment ne pas les perdre ?</Term> Dans Réviser, en bas de page, « Exporter » crée un fichier de sauvegarde ; « Importer » le restaure. Fais-le régulièrement : effacer les données du navigateur ou utiliser la navigation privée supprime tout.
+          <Term>Comment ne pas les perdre ?</Term> Dans Réviser, en bas de page, la carte « Mes données » rassemble tout :
         </p>
+        <Ul>
+          <li><Term>Protéger mes données</Term> demande au navigateur de ne pas les effacer quand l’espace manque (sur iPhone, un site non installé peut être purgé après environ une semaine sans visite : installe l’app).</li>
+          <li><Term>Exporter</Term> crée un fichier de sauvegarde ; <Term>Partager</Term> (mobile) l’envoie vers Drive, iCloud ou une messagerie ; <Term>Importer</Term> le restaure.</li>
+          <li><Term>Sauvegarde automatique</Term> (Chrome ou Edge sur ordinateur) : choisis un dossier, de préférence synchronisé (OneDrive, Dropbox, Drive) ; l’app y écrit une sauvegarde par jour et garde les 7 dernières.</li>
+          <li>Un <Term>rappel</Term> s’affiche si tu n’as pas sauvegardé depuis une semaine.</li>
+        </Ul>
+        <p>Effacer les données du navigateur ou utiliser la navigation privée supprime tout : garde une sauvegarde récente.</p>
         <p><Term>Téléphone et ordinateur ?</Term> Chaque appareil a ses propres données. Pour passer de l’un à l’autre : Exporter sur le premier, Importer sur le second.</p>
         <p>
           <Term>Installer l’application ?</Term> Clique sur « Installer » en haut quand il apparaît, ou, sur iPhone, Partager → « Sur l’écran d’accueil ».
@@ -198,6 +220,10 @@ export function TutoPage({ onGo }: { onGo: (t: TabId) => void }) {
           <Term>« Terminé pour ce paquet » alors que j’ai ajouté des cartes ?</Term> Tu as atteint la limite de nouvelles cartes du jour : augmente-la en bas de l’écran Réviser, ou reviens demain.
         </p>
         <p><Term>« Packs de puzzles absents » ?</Term> Les packs sont générés quand le site est publié ; ils ne sont pas disponibles si cette étape a échoué.</p>
+      </Section>
+
+      <Section title="À propos, licences et diagnostic">
+        <About />
       </Section>
     </div>
   );

@@ -12,6 +12,7 @@ import { saveManualCard } from '../../db/games';
 import { CLASS_META, formatEval } from '../../lib/analysis';
 import { Uci, stockfishWorker } from '../../lib/engine';
 import { replay } from '../../lib/games';
+import { playSound, soundForSan } from '../../lib/sounds';
 import { AnalysisSummary } from './analysis/AnalysisSummary';
 import { EvalBar } from './analysis/EvalBar';
 import { EvalGraph } from './analysis/EvalGraph';
@@ -45,6 +46,12 @@ export function GameViewer({ gameId, onBack, onGoReview }: { gameId: string; onB
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [fixing, ucis.length]);
+
+  const prevPly = useRef(0);
+  useEffect(() => {
+    if (ply === prevPly.current + 1 && moves[ply - 1]) playSound(soundForSan(moves[ply - 1]));
+    prevPly.current = ply;
+  }, [ply, moves]);
 
   const shown = fixing ? ply - 1 : ply;
   const cls = analysis && ply > 0 ? analysis.classes[ply - 1] : undefined;

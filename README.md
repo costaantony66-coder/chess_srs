@@ -120,7 +120,34 @@ Push sur `main` → GitHub Actions build et publie sur GitHub Pages
 - [x] 6B. Navigation par paquets (Coups seuls / Lignes), Stockfish, PWA hors ligne
 - [x] 7A. Analyse complète façon Chess.com (catégories, précision, barre et courbe d'évaluation), choix du nombre de parties, import simplifié
 - [x] 7B. Plateau avec bot (choix de l'Elo), rubrique Tuto
+- [x] 8. Correctifs (plateau noirs, budget de nouvelles cartes, coordonnées), protection des données, clavier et sons, gestion des cartes, licence et écran de secours
 
 ## Workflow Git
 
 Une branche par fonctionnalité (`feat/...`), Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`), PR vers `main`.
+
+## Protection des données
+
+Tout est stocké localement (IndexedDB). La carte « Mes données » (écran Réviser) : demande de **stockage persistant**
+(`navigator.storage.persist`), **export / partage / import** JSON, **rappel** hebdomadaire (`src/lib/backupReminder.ts`) et
+**sauvegarde automatique** quotidienne dans un dossier choisi (API d'accès aux fichiers, Chrome/Edge ordinateur :
+`src/db/autobackup.ts`, 7 sauvegardes conservées).
+
+## Confort d'étude
+
+Raccourcis en révision : 1-4 (notes), Espace/Entrée (Good ou « Continuer la ligne »), H (indice), U / Ctrl+Z (annuler la
+note), Échap (quitter). Sons et vibrations synthétisés (`src/lib/sounds.ts`, aucun fichier audio). Gestion des cartes :
+suspendre, supprimer, déplacer, explorateur (`CardBrowser`). Le plafond de nouvelles cartes par jour est un **budget par
+catégorie** (Ouvertures, Puzzles…), partagé entre ses sous-paquets.
+
+## Licence et fiabilité
+
+**GPL-3.0 ou ultérieure** (`LICENSE`, `THIRD_PARTY.md`, page « À propos » du Tuto, lien vers le code source injecté par la
+CI via `VITE_REPO_URL`). Un écran de secours (`ErrorBoundary`) propose d'exporter les données en cas d'erreur d'affichage ;
+les erreurs inattendues affichent un bandeau discret et sont mémorisées pour le diagnostic.
+
+## Notes pour les développeurs
+
+- `Board` n'utilise pas l'option `viewOnly` de chessground : changer l'orientation pendant qu'elle est active recrée le
+  plateau sans réattacher les clics (test de non-régression dans `Board.test.tsx`).
+- Les tests d'interface utilisent jsdom + Testing Library (`// @vitest-environment jsdom` en tête de fichier).
