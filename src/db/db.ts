@@ -34,6 +34,8 @@ export interface StoredCard {
   /** Dernier coup (nœud du répertoire) d'une carte-ligne. */
   lineEnd?: string;
   createdAt: number;
+  /** Carte suspendue : elle n'apparaît plus en révision (réversible depuis l'explorateur de cartes). */
+  suspended?: boolean;
   /** Copies à plat de fsrs.due / fsrs.state, pour les index. */
   due: number;
   state: number;
@@ -107,6 +109,12 @@ export interface Game {
   analysis?: GameAnalysis;
 }
 
+/** Réglages techniques locaux (ex. dossier de sauvegarde automatique). Non exporté. */
+export interface MetaRow {
+  key: string;
+  value: unknown;
+}
+
 export interface ReviewLog {
   id?: number;
   cardId: string;
@@ -125,6 +133,7 @@ export class ChessDB extends Dexie {
   repertoires!: Table<Repertoire, string>;
   repnodes!: Table<RepNode, string>;
   games!: Table<Game, string>;
+  meta!: Table<MetaRow, string>;
 
   constructor(name = 'chess-srs') {
     super(name);
@@ -186,6 +195,15 @@ export class ChessDB extends Dexie {
             }
           }),
       );
+    // v7 : table de réglages techniques (dossier de sauvegarde automatique)
+    this.version(7).stores({
+      cards: 'id, type, due, state, createdAt, rating, repId, gameId, deck, *tags',
+      reviews: '++id, cardId, ts',
+      repertoires: 'id, createdAt',
+      repnodes: 'id, repId, [repId+parentId]',
+      games: 'id, source, importedAt',
+      meta: 'key',
+    });
   }
 }
 

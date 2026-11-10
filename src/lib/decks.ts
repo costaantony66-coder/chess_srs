@@ -54,3 +54,6 @@ export const openingDecks = (name: string) => ({
   singles: `${deckPath('Ouvertures', name)}${DECK_SEP}${SINGLES}`,
   lines: `${deckPath('Ouvertures', name)}${DECK_SEP}${LINES}`,
 });
+
+/** Catégorie de premier niveau d'un paquet : « Puzzles::Fourchette » → « Puzzles ». */
+export const topLevel = (path: string) => path.split(DECK_SEP)[0];

@@ -136,3 +136,43 @@ describe('ouvertures : Coups seuls / Lignes', () => {
     await db.repertoires.clear();
   });
 });
+
+describe('budget de nouvelles cartes partagé par catégorie', () => {
+  const mk = (id: string, deck: string) =>
+    makeCard({ id, type: 'tactic', title: id, fen: '4k3/8/8/8/8/8/8/4K3 w - - 0 1', solution: ['e1e2'], tags: [], deck });
+
+  it('la catégorie plafonne le total, les sous-paquets se partagent le reste', async () => {
+    await db.cards.clear();
+    await db.reviews.clear();
+    await db.cards.bulkAdd([
+      ...Array.from({ length: 8 }, (_, i) => mk(`a${i}`, 'Puzzles::A')),
+      ...Array.from({ length: 7 }, (_, i) => mk(`b${i}`, 'Puzzles::B')),
+    ]);
+    let tree = await loadDeckTree();
+    const puzzles = () => tree.roots.find((n) => n.name === 'Puzzles')!;
+    expect(puzzles().new).toBe(10); // 15 cartes mais 10 par jour
+    expect(tree.budgets.Puzzles).toEqual({ limit: 10, done: 0, left: 10 });
+    expect(tree.all.new).toBe(10);
+
+    // on étudie 5 cartes du sous-paquet A : le budget de TOUTE la catégorie baisse
+    for (let i = 0; i < 5; i++) {
+      const q = await loadQueue(new Date(), undefined, 'Puzzles::A');
+      await applyReview(q.cards[0], 'easy', { durationMs: 1, correct: true }); // « Easy » : la carte sort de la file
+    }
+    tree = await loadDeckTree();
+    expect(tree.budgets.Puzzles).toEqual({ limit: 10, done: 5, left: 5 });
+    expect(puzzles().children.find((c) => c.name === 'A')!.new).toBe(3);
+    expect(puzzles().children.find((c) => c.name === 'B')!.new).toBe(5);
+    expect(puzzles().new).toBe(5);
+    expect((await loadQueue(new Date(), undefined, 'Puzzles::B')).counts.new).toBe(5);
+    expect((await loadQueue(new Date(), undefined, 'Puzzles')).counts.new).toBe(5);
+  });
+
+  it('les cartes suspendues ne sont jamais proposées', async () => {
+    await db.cards.clear();
+    await db.reviews.clear();
+    await db.cards.bulkAdd([mk('x1', 'Puzzles::A'), { ...mk('x2', 'Puzzles::A'), suspended: true }]);
+    expect((await loadQueue()).cards.map((c) => c.id)).toEqual(['x1']);
+    expect((await loadDeckTree()).all.new).toBe(1);
+  });
+});

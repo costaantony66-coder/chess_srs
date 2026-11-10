@@ -1,7 +1,7 @@
 import { State } from 'ts-fsrs';
 import { db } from './db';
 import { bucketOf, endOfDay, startOfDay } from './queue';
-import { DECK_SEP, openingDecks, prefixes } from '../lib/decks';
+import { DECK_SEP, openingDecks, prefixes, topLevel } from '../lib/decks';
 import { getNewPerDay } from '../lib/settings';
 
 export interface DeckNode {
@@ -14,9 +14,18 @@ export interface DeckNode {
   review: number;
 }
 
+export interface Budget {
+  limit: number;
+  /** Nouvelles cartes déjà vues aujourd'hui dans cette catégorie. */
+  done: number;
+  left: number;
+}
+
 export interface DeckTree {
   roots: DeckNode[];
   all: { total: number; new: number; learning: number; review: number };
+  /** Budget quotidien de nouvelles cartes de chaque catégorie (Ouvertures, Puzzles…). */
+  budgets: Record<string, Budget>;
 }
 
 const TOP_ORDER = ['Ouvertures', 'Puzzles', 'Parties', 'Finales', 'Démo'];
@@ -33,7 +42,7 @@ const sortNodes = (nodes: DeckNode[], top: boolean) => {
   nodes.forEach((n) => sortNodes(n.children, false));
 };
 
-/** Arbre des paquets avec les compteurs façon Anki (le plafond de nouvelles s'applique par paquet). */
+/** Arbre des paquets avec les compteurs façon Anki (le plafond de nouvelles est un budget par catégorie). */
 export async function loadDeckTree(now = new Date()): Promise<DeckTree> {
   const nowMs = now.getTime();
   const endMs = endOfDay(now).getTime();
@@ -47,7 +56,7 @@ export async function loadDeckTree(now = new Date()): Promise<DeckTree> {
 
   const nodes = new Map<string, DeckNode>();
   const rawNew = new Map<string, number>();
-  const doneNew = new Map<string, number>();
+  const doneNew = new Map<string, number>(); // par catégorie de premier niveau
   const roots: DeckNode[] = [];
 
   const node = (path: string): DeckNode => {
@@ -80,23 +89,21 @@ export async function loadDeckTree(now = new Date()): Promise<DeckTree> {
   for (const r of today) {
     const c = byId.get(r.cardId);
     if (!c || r.prevState !== State.New) continue;
-    for (const p of prefixes(c.deck)) doneNew.set(p, (doneNew.get(p) ?? 0) + 1);
+    doneNew.set(topLevel(c.deck), (doneNew.get(topLevel(c.deck)) ?? 0) + 1);
   }
-  for (const [path, n] of nodes) n.new = Math.min(rawNew.get(path) ?? 0, Math.max(0, limit - (doneNew.get(path) ?? 0)));
+  const left = (top: string) => Math.max(0, limit - (doneNew.get(top) ?? 0));
+  for (const [path, n] of nodes) n.new = Math.min(rawNew.get(path) ?? 0, left(topLevel(path)));
   sortNodes(roots, true);
 
-  let rawAllNew = 0;
   let learning = 0;
   let review = 0;
   for (const c of cards) {
     const b = bucketOf(c, nowMs, endMs);
-    if (b === 'new') rawAllNew++;
-    else if (b === 'learning') learning++;
+    if (b === 'learning') learning++;
     else if (b === 'review') review++;
   }
-  const doneAll = today.filter((r) => r.prevState === State.New && byId.has(r.cardId)).length;
-  return {
-    roots,
-    all: { total: cards.length, new: Math.min(rawAllNew, Math.max(0, limit - doneAll)), learning, review },
-  };
+  const budgets: Record<string, Budget> = {};
+  for (const root of roots) budgets[root.name] = { limit, done: doneNew.get(root.name) ?? 0, left: left(root.name) };
+  const newAll = roots.reduce((n, r) => n + r.new, 0);
+  return { roots, all: { total: cards.length, new: newAll, learning, review }, budgets };
 }

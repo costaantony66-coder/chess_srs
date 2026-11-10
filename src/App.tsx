@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { BarChart3, BookOpen, Brain, Crown, Download, FileText, GitBranch, Puzzle, type LucideIcon } from 'lucide-react';
+import { BarChart3, BookOpen, Brain, Crown, Download, FileText, GitBranch, Puzzle, Volume2, VolumeX, type LucideIcon } from 'lucide-react';
 import { ThemeToggle } from './components/ui/ThemeToggle';
 import { Playground } from './features/playground/Playground';
 import { GamesPage } from './features/games/GamesPage';
@@ -12,7 +12,12 @@ import type { TabId } from './lib/tabs';
 import { Card } from './components/ui/Card';
 import { Button } from './components/ui/Button';
 import { ReviewSession } from './features/review/ReviewSession';
+import { exportData } from './db/backup';
+import { buildDiagnostics } from './lib/diagnostics';
+import { useDataProtection } from './hooks/useDataProtection';
+import { useGlobalErrors } from './hooks/useGlobalErrors';
 import { useInstallPrompt } from './hooks/useInstallPrompt';
+import { setSoundsEnabled, soundsEnabled } from './lib/sounds';
 import { useTheme } from './hooks/useTheme';
 
 const TABS: { id: Exclude<TabId, 'tuto'>; label: string; icon: LucideIcon }[] = [
@@ -47,6 +52,9 @@ export function App() {
   const [tab, setTab] = useState<TabId>('review');
   const { theme, toggle } = useTheme();
   const { canInstall, install } = useInstallPrompt();
+  useDataProtection();
+  const globalError = useGlobalErrors();
+  const [sound, setSound] = useState(soundsEnabled);
   const [welcome, setWelcome] = useState(() => {
     try {
       return localStorage.getItem('welcomeSeen') !== '1';
@@ -68,6 +76,17 @@ export function App() {
       <header className="flex items-center justify-between px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <h1 className="font-display text-2xl tracking-tight">Chess SRS</h1>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setSoundsEnabled(!sound);
+              setSound(!sound);
+            }}
+            aria-label={sound ? 'Couper les sons' : 'Activer les sons'}
+            aria-pressed={sound}
+            className="grid size-11 place-items-center rounded-xl bg-surface-2 text-fg transition active:scale-95"
+          >
+            {sound ? <Volume2 size={18} /> : <VolumeX size={18} />}
+          </button>
           <button
             onClick={() => (setTab('tuto'), dismissWelcome())}
             aria-label="Tuto"
@@ -91,6 +110,17 @@ export function App() {
       </header>
 
       <main className="flex-1 overflow-y-auto px-4 pb-4">
+        {globalError.message && (
+          <Card className="mx-auto mb-4 flex max-w-2xl flex-col gap-3 border-bad">
+            <p className="font-medium">Une erreur inattendue s’est produite</p>
+            <p className="text-sm text-muted">Tes données sont intactes. Si le problème se répète, sauvegarde-les et copie les détails pour me les envoyer.</p>
+            <div className="grid grid-cols-3 gap-2">
+              <Button onClick={() => void exportData()}>Exporter</Button>
+              <Button onClick={() => void buildDiagnostics().then((t) => navigator.clipboard?.writeText(t))}>Copier</Button>
+              <Button onClick={globalError.clear}>Fermer</Button>
+            </div>
+          </Card>
+        )}
         {welcome && tab !== 'tuto' && (
           <Card className="mx-auto mb-4 flex max-w-2xl flex-col gap-3 border-accent">
             <p className="font-display text-lg">Bienvenue sur Chess SRS !</p>
