@@ -122,6 +122,12 @@ export function StudySession({ deck, title, onExit }: Props) {
         </Button>
         <span className="hidden text-xs text-muted md:inline">Échap : quitter · U : annuler la note</span>
       </div>
+      {queue.goal && (
+        <p className="mb-3 text-sm text-muted">
+          Objectif du jour : <strong className="text-fg">{queue.goal.done} / {queue.goal.limit}</strong> nouvelles cartes
+          {queue.goal.done >= queue.goal.limit && queue.counts.new > 0 ? ' — atteint ! Tu peux continuer ou t’arrêter ici et revenir demain.' : '.'}
+        </p>
+      )}
       {note && <p className="mb-3 text-sm text-muted">{note}</p>}
 
       {current ? (

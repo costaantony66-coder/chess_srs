@@ -137,8 +137,8 @@ Tout est stocké localement (IndexedDB). La carte « Mes données » (écran Ré
 
 Raccourcis en révision : 1-4 (notes), Espace/Entrée (Good ou « Continuer la ligne »), H (indice), U / Ctrl+Z (annuler la
 note), Échap (quitter). Sons et vibrations synthétisés (`src/lib/sounds.ts`, aucun fichier audio). Gestion des cartes :
-suspendre, supprimer, déplacer, explorateur (`CardBrowser`). Le plafond de nouvelles cartes par jour est un **budget par
-catégorie** (Ouvertures, Puzzles…), partagé entre ses sous-paquets.
+suspendre, supprimer, déplacer, explorateur (`CardBrowser`). Les compteurs de l'écran Réviser sont toujours les vrais nombres de cartes (un parent = la
+somme de ses sous-paquets), et l'objectif de nouvelles cartes par jour (par catégorie) est un repère non bloquant.
 
 ## Licence et fiabilité
 

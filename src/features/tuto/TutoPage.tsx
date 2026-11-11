@@ -110,7 +110,8 @@ export function TutoPage({ onGo }: { onGo: (t: TabId) => void }) {
           <li>Touche un paquet : s’il contient des sous-paquets, tu descends d’un niveau (le fil d’Ariane en haut permet de remonter). Sinon, la révision démarre.</li>
           <li>« Tout réviser » (ou « Réviser tout … ») lance toutes les cartes du niveau affiché.</li>
           <li>Trois chiffres par paquet : <Term>Nouvelles</Term> (jamais vues), <Term>Apprentissage</Term> (en cours de mémorisation, à revoir dans quelques minutes) et <Term>À revoir</Term> (à réviser aujourd’hui).</li>
-          <li>Pour ne pas te noyer, il y a une limite de nouvelles cartes par jour pour chaque catégorie (Ouvertures, Puzzles, Parties…), partagée entre ses sous-paquets et réglable en bas de l’écran.</li>
+          <li>Les chiffres sont les vrais nombres de cartes : un paquet affiche la somme de ses sous-paquets (par exemple 10 + 10 + 5 + 10 + 2 = 37 nouvelles dans Puzzles).</li>
+          <li>Pour ne pas te noyer, un <Term>objectif de nouvelles cartes par jour</Term> (réglable en bas de l’écran) te donne un repère pour chaque catégorie : l’app te félicite quand tu l’atteins, mais ne te bloque jamais.</li>
         </Ul>
         <Ul>
           <li>
@@ -217,7 +218,7 @@ export function TutoPage({ onGo }: { onGo: (t: TabId) => void }) {
         </p>
         <p><Term>Pourquoi une carte revient dans 10 minutes ?</Term> Une carte nouvelle ou ratée passe par une phase d’apprentissage avec des rappels rapprochés.</p>
         <p>
-          <Term>« Terminé pour ce paquet » alors que j’ai ajouté des cartes ?</Term> Tu as atteint la limite de nouvelles cartes du jour : augmente-la en bas de l’écran Réviser, ou reviens demain.
+          <Term>« Terminé pour ce paquet » alors que j’ai ajouté des cartes ?</Term> Vérifie que tu regardes le bon paquet et que les cartes ne sont pas suspendues (« Parcourir les cartes »). Une carte revue il y a peu peut aussi n’être due que plus tard.
         </p>
         <p><Term>« Packs de puzzles absents » ?</Term> Les packs sont générés quand le site est publié ; ils ne sont pas disponibles si cette étape a échoué.</p>
       </Section>
