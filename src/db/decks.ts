@@ -18,13 +18,14 @@ export interface Budget {
   limit: number;
   /** Nouvelles cartes déjà vues aujourd'hui dans cette catégorie. */
   done: number;
+  /** Ce qu'il reste pour atteindre l'objectif (0 si atteint). Informatif : rien n'est bloqué. */
   left: number;
 }
 
 export interface DeckTree {
   roots: DeckNode[];
   all: { total: number; new: number; learning: number; review: number };
-  /** Budget quotidien de nouvelles cartes de chaque catégorie (Ouvertures, Puzzles…). */
+  /** Objectif quotidien de nouvelles cartes de chaque catégorie (Ouvertures, Puzzles…), avec l'avancement du jour. */
   budgets: Record<string, Budget>;
 }
 
@@ -42,7 +43,7 @@ const sortNodes = (nodes: DeckNode[], top: boolean) => {
   nodes.forEach((n) => sortNodes(n.children, false));
 };
 
-/** Arbre des paquets avec les compteurs façon Anki (le plafond de nouvelles est un budget par catégorie). */
+/** Arbre des paquets : les compteurs sont les vrais nombres de cartes (un parent = la somme de ses sous-paquets). */
 export async function loadDeckTree(now = new Date()): Promise<DeckTree> {
   const nowMs = now.getTime();
   const endMs = endOfDay(now).getTime();
@@ -92,7 +93,7 @@ export async function loadDeckTree(now = new Date()): Promise<DeckTree> {
     doneNew.set(topLevel(c.deck), (doneNew.get(topLevel(c.deck)) ?? 0) + 1);
   }
   const left = (top: string) => Math.max(0, limit - (doneNew.get(top) ?? 0));
-  for (const [path, n] of nodes) n.new = Math.min(rawNew.get(path) ?? 0, left(topLevel(path)));
+  for (const [path, n] of nodes) n.new = rawNew.get(path) ?? 0;
   sortNodes(roots, true);
 
   let learning = 0;

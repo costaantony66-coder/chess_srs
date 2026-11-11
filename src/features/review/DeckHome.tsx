@@ -106,8 +106,8 @@ export function DeckHome({ level, onLevel, onStudy, onBrowse }: Props) {
 
           {budget && (
             <p className="mb-3 rounded-xl bg-surface-2 px-3 py-2 text-sm text-muted">
-              Aujourd’hui dans « {budget.name} » : <strong className="text-fg">{budget.left}</strong> nouvelle{budget.left > 1 ? 's' : ''} carte{budget.left > 1 ? 's' : ''} à voir sur {budget.limit}
-              {budget.done > 0 && ` (${budget.done} déjà vue${budget.done > 1 ? 's' : ''})`}. Elles se partagent entre les sous-paquets : le total affiché en haut est donc plus petit que la somme des lignes.
+              Objectif du jour dans « {budget.name} » : <strong className="text-fg">{budget.done} / {budget.limit}</strong> nouvelles cartes vues
+              {budget.done >= budget.limit ? ' — objectif atteint, bravo ! Tu peux continuer si tu veux.' : '.'}
             </p>
           )}
 
@@ -170,7 +170,10 @@ export function DeckHome({ level, onLevel, onStudy, onBrowse }: Props) {
       {!level && (
         <>
           <Card className="mt-6 flex items-center justify-between gap-3">
-            <p className="text-sm">Nouvelles cartes par jour et par catégorie (Ouvertures, Puzzles…)</p>
+            <div className="min-w-0">
+              <p className="text-sm">Objectif de nouvelles cartes par jour (par catégorie)</p>
+              <p className="text-xs text-muted">Un repère : l’app te prévient quand tu l’atteins, sans jamais te bloquer.</p>
+            </div>
             <div className="flex items-center gap-2">
               <Button onClick={() => changePerDay(-5)} disabled={perDay <= 0} aria-label="Moins" className="w-11 px-0">
                 −

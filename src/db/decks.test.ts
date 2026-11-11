@@ -41,7 +41,7 @@ describe('arbre et file par paquet', () => {
     expect(parent.cards).toHaveLength(3);
   });
 
-  it('le plafond de nouvelles cartes est compté dans le paquet étudié', async () => {
+  it('le nombre de nouvelles cartes affiché est le nombre réel, par paquet', async () => {
     const cards = Array.from({ length: 12 }, (_, i) =>
       makeCard({ id: `p${i}`, type: 'tactic', title: 'p', fen: '4k3/8/8/8/8/8/8/4K3 w - - 0 1', solution: ['e1e2'], tags: [], deck: 'Puzzles::Fourchette' }),
     );
@@ -49,7 +49,7 @@ describe('arbre et file par paquet', () => {
     const first = (await loadQueue(new Date(), undefined, 'Puzzles')).cards[0];
     await applyReview(first, 'good', { durationMs: 1, correct: true });
     const puzzles = await loadQueue(new Date(), undefined, 'Puzzles');
-    expect(puzzles.counts.new).toBe(9); // 10 par jour - 1 déjà vue
+    expect(puzzles.counts.new).toBe(11); // 12 cartes - 1 déjà vue : aucune limite cachée
     const openings = await loadQueue(new Date(), undefined, 'Ouvertures');
     expect(openings.counts.new).toBe(1); // autre paquet : pas affecté
   });
@@ -137,35 +137,60 @@ describe('ouvertures : Coups seuls / Lignes', () => {
   });
 });
 
-describe('budget de nouvelles cartes partagé par catégorie', () => {
+describe('compteurs de nouvelles cartes : vrais nombres, parent = somme des enfants', () => {
   const mk = (id: string, deck: string) =>
     makeCard({ id, type: 'tactic', title: id, fen: '4k3/8/8/8/8/8/8/4K3 w - - 0 1', solution: ['e1e2'], tags: [], deck });
+  const many = (n: number, deck: string, prefix: string) => Array.from({ length: n }, (_, i) => mk(`${prefix}${i}`, deck));
 
-  it('la catégorie plafonne le total, les sous-paquets se partagent le reste', async () => {
+  it('10 mats en 3 + 10 mats en 2 + 5 mats en 1 + 10 fourchettes + 2 clouages = 37 dans Puzzles', async () => {
     await db.cards.clear();
     await db.reviews.clear();
     await db.cards.bulkAdd([
-      ...Array.from({ length: 8 }, (_, i) => mk(`a${i}`, 'Puzzles::A')),
-      ...Array.from({ length: 7 }, (_, i) => mk(`b${i}`, 'Puzzles::B')),
+      ...many(10, 'Puzzles::Mat en 3', 'm3-'),
+      ...many(10, 'Puzzles::Mat en 2', 'm2-'),
+      ...many(5, 'Puzzles::Mat en 1', 'm1-'),
+      ...many(10, 'Puzzles::Fourchette', 'f-'),
+      ...many(2, 'Puzzles::Clouage', 'c-'),
     ]);
-    let tree = await loadDeckTree();
-    const puzzles = () => tree.roots.find((n) => n.name === 'Puzzles')!;
-    expect(puzzles().new).toBe(10); // 15 cartes mais 10 par jour
-    expect(tree.budgets.Puzzles).toEqual({ limit: 10, done: 0, left: 10 });
-    expect(tree.all.new).toBe(10);
+    const tree = await loadDeckTree();
+    const puzzles = tree.roots.find((n) => n.name === 'Puzzles')!;
+    expect(puzzles.new).toBe(37);
+    expect(puzzles.children.map((c) => c.new).sort((a, b) => a - b)).toEqual([2, 5, 10, 10, 10]);
+    expect(puzzles.children.reduce((n, c) => n + c.new, 0)).toBe(puzzles.new);
+    expect(tree.all.new).toBe(37);
+    // et la session propose bien toutes ces cartes
+    expect((await loadQueue(new Date(), undefined, 'Puzzles')).counts.new).toBe(37);
+    expect((await loadQueue()).counts.new).toBe(37);
+  });
 
-    // on étudie 5 cartes du sous-paquet A : le budget de TOUTE la catégorie baisse
+  it('l’objectif du jour avance avec les cartes vues mais ne cache ni ne bloque rien', async () => {
+    await db.cards.clear();
+    await db.reviews.clear();
+    await db.cards.bulkAdd([...many(8, 'Puzzles::A', 'a'), ...many(7, 'Puzzles::B', 'b')]);
     for (let i = 0; i < 5; i++) {
       const q = await loadQueue(new Date(), undefined, 'Puzzles::A');
       await applyReview(q.cards[0], 'easy', { durationMs: 1, correct: true }); // « Easy » : la carte sort de la file
     }
-    tree = await loadDeckTree();
+    const tree = await loadDeckTree();
+    const puzzles = tree.roots.find((n) => n.name === 'Puzzles')!;
+    expect(puzzles.children.find((c) => c.name === 'A')!.new).toBe(3);
+    expect(puzzles.children.find((c) => c.name === 'B')!.new).toBe(7);
+    expect(puzzles.new).toBe(10); // 3 + 7
     expect(tree.budgets.Puzzles).toEqual({ limit: 10, done: 5, left: 5 });
-    expect(puzzles().children.find((c) => c.name === 'A')!.new).toBe(3);
-    expect(puzzles().children.find((c) => c.name === 'B')!.new).toBe(5);
-    expect(puzzles().new).toBe(5);
-    expect((await loadQueue(new Date(), undefined, 'Puzzles::B')).counts.new).toBe(5);
-    expect((await loadQueue(new Date(), undefined, 'Puzzles')).counts.new).toBe(5);
+
+    // 5 cartes vues sur un objectif de 10 : on peut continuer, rien n'est coupé
+    const q = await loadQueue(new Date(), undefined, 'Puzzles');
+    expect(q.counts.new).toBe(10);
+    expect(q.goal).toEqual({ done: 5, limit: 10 });
+    // objectif dépassé : toujours rien de bloqué
+    for (let i = 0; i < 6; i++) {
+      const next = await loadQueue(new Date(), undefined, 'Puzzles');
+      await applyReview(next.cards[0], 'easy', { durationMs: 1, correct: true });
+    }
+    const after = await loadQueue(new Date(), undefined, 'Puzzles');
+    expect(after.goal!.done).toBe(11);
+    expect(after.counts.new).toBe(4);
+    expect((await loadQueue()).goal).toBeNull(); // « Tout réviser » : pas d'objectif unique
   });
 
   it('les cartes suspendues ne sont jamais proposées', async () => {

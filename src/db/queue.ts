@@ -8,6 +8,8 @@ export const LEARN_AHEAD_MS = 20 * 60 * 1000;
 
 export interface QueueState {
   cards: StoredCard[];
+  /** Objectif du jour de la catégorie étudiée (informatif, jamais bloquant). Absent pour « Tout réviser ». */
+  goal: { done: number; limit: number } | null;
   counts: { new: number; learning: number; review: number };
   doneToday: number;
   totalCards: number;
@@ -37,8 +39,8 @@ export const endOfDay = (d: Date) => {
 
 /**
  * File du jour d'un paquet (ou de toute la collection si `deck` est absent) :
- * apprentissage + révisions dues aujourd'hui, puis nouvelles cartes. Le plafond quotidien de nouvelles cartes
- * est un budget par catégorie (Ouvertures, Puzzles…), partagé entre tous ses sous-paquets.
+ * apprentissage + révisions dues aujourd'hui, puis TOUTES les nouvelles cartes du paquet. Le nombre de nouvelles cartes
+ * par jour est un objectif (par catégorie : Ouvertures, Puzzles…) : on le suit, on ne bloque jamais.
  */
 export async function loadQueue(now = new Date(), excludeId?: string, deck?: string): Promise<QueueState> {
   const nowMs = now.getTime();
@@ -67,18 +69,10 @@ export async function loadQueue(now = new Date(), excludeId?: string, deck?: str
     })
     .sort((a, b) => a.due - b.due);
 
+  const fresh = scoped.filter((c) => c.state === State.New && !c.suspended).sort((a, b) => a.createdAt - b.createdAt);
+
   const limit = getNewPerDay();
-  const taken = new Map<string, number>();
-  const fresh = scoped
-    .filter((c) => c.state === State.New && !c.suspended)
-    .sort((a, b) => a.createdAt - b.createdAt)
-    .filter((c) => {
-      const t = topLevel(c.deck);
-      const used = taken.get(t) ?? 0;
-      if (used >= Math.max(0, limit - (doneNew.get(t) ?? 0))) return false;
-      taken.set(t, used + 1);
-      return true;
-    });
+  const goal = deck ? { done: doneNew.get(topLevel(deck)) ?? 0, limit } : null;
 
   const cards = [...due, ...fresh];
   if (excludeId && cards.length > 1 && cards[0].id === excludeId) cards.push(cards.shift()!);
@@ -90,6 +84,7 @@ export async function loadQueue(now = new Date(), excludeId?: string, deck?: str
 
   return {
     cards,
+    goal,
     counts: {
       new: fresh.length,
       learning: due.filter((c) => c.state !== State.Review).length,
