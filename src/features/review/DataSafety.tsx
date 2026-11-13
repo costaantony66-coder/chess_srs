@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Download, FolderCheck, ShieldCheck, ShieldAlert, Share2, Upload } from 'lucide-react';
+import { Download, FolderCheck, ShieldCheck, ShieldAlert, Upload } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import {
@@ -11,18 +11,17 @@ import {
   supportsAutoBackup,
   type AutoBackupStatus,
 } from '../../db/autobackup';
-import { exportData, importData, shareBackup } from '../../db/backup';
+import { exportData, importData } from '../../db/backup';
 import { describeAge, getLastBackupAt } from '../../lib/backupReminder';
 import { formatBytes, getStorageStatus, requestPersistence, type StorageStatus } from '../../lib/storage';
 
-/** Tout pour ne pas perdre tes données : stockage protégé, export, partage, sauvegarde automatique, import. */
+/** Tout pour ne pas perdre tes données : stockage protégé, export, sauvegarde automatique, import. */
 export function DataSafety({ onImported }: { onImported: () => void }) {
   const input = useRef<HTMLInputElement>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [storage, setStorage] = useState<StorageStatus | null>(null);
   const [auto, setAuto] = useState<AutoBackupStatus | null>(null);
   const [lastAt, setLastAt] = useState(getLastBackupAt);
-  const canShare = typeof navigator !== 'undefined' && typeof navigator.canShare === 'function';
 
   const refresh = useCallback(async () => {
     setStorage(await getStorageStatus());
@@ -82,22 +81,10 @@ export function DataSafety({ onImported }: { onImported: () => void }) {
         </Button>
       )}
 
-      <div className={`mt-3 grid gap-2 ${canShare ? 'grid-cols-3' : 'grid-cols-2'}`}>
+      <div className="mt-3 grid grid-cols-2 gap-2">
         <Button onClick={() => void run(exportData)}>
           <Download size={16} /> Exporter
         </Button>
-        {canShare && (
-          <Button
-            onClick={() =>
-              void run(async () => {
-                const r = await shareBackup();
-                if (r === 'unsupported') setMsg('Le partage de fichier n’est pas disponible ici : utilise « Exporter ».');
-              })
-            }
-          >
-            <Share2 size={16} /> Partager
-          </Button>
-        )}
         <Button onClick={() => input.current?.click()}>
           <Upload size={16} /> Importer
         </Button>
@@ -111,7 +98,7 @@ export function DataSafety({ onImported }: { onImported: () => void }) {
         </div>
         {!supportsAutoBackup() ? (
           <p className="mt-1 text-sm text-muted">
-            Disponible sur Chrome ou Edge (ordinateur). Ailleurs, utilise « Exporter » ou « Partager » : un rappel s’affiche chaque semaine.
+            Disponible sur Chrome ou Edge (ordinateur). Ailleurs, utilise « Exporter » : un rappel s’affiche chaque semaine.
           </p>
         ) : auto?.enabled ? (
           <div className="mt-1 flex flex-col gap-2 text-sm">

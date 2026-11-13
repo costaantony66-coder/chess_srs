@@ -120,6 +120,7 @@ Push sur `main` → GitHub Actions build et publie sur GitHub Pages
 - [x] 6B. Navigation par paquets (Coups seuls / Lignes), Stockfish, PWA hors ligne
 - [x] 7A. Analyse complète façon Chess.com (catégories, précision, barre et courbe d'évaluation), choix du nombre de parties, import simplifié
 - [x] 7B. Plateau avec bot (choix de l'Elo), rubrique Tuto
+- [x] 9. Plateau › Positions (entraînement aux coordonnées chronométré, statistiques « Vision de l'échiquier »), suppression du bouton Partager
 - [x] 8. Correctifs (plateau noirs, budget de nouvelles cartes, coordonnées), protection des données, clavier et sons, gestion des cartes, licence et écran de secours
 
 ## Workflow Git
@@ -129,7 +130,7 @@ Une branche par fonctionnalité (`feat/...`), Conventional Commits (`feat:`, `fi
 ## Protection des données
 
 Tout est stocké localement (IndexedDB). La carte « Mes données » (écran Réviser) : demande de **stockage persistant**
-(`navigator.storage.persist`), **export / partage / import** JSON, **rappel** hebdomadaire (`src/lib/backupReminder.ts`) et
+(`navigator.storage.persist`), **export / import** JSON, **rappel** hebdomadaire (`src/lib/backupReminder.ts`) et
 **sauvegarde automatique** quotidienne dans un dossier choisi (API d'accès aux fichiers, Chrome/Edge ordinateur :
 `src/db/autobackup.ts`, 7 sauvegardes conservées).
 
@@ -151,3 +152,12 @@ les erreurs inattendues affichent un bandeau discret et sont mémorisées pour l
 - `Board` n'utilise pas l'option `viewOnly` de chessground : changer l'orientation pendant qu'elle est active recrée le
   plateau sans réattacher les clics (test de non-régression dans `Board.test.tsx`).
 - Les tests d'interface utilisent jsdom + Testing Library (`// @vitest-environment jsdom` en tête de fichier).
+
+## Plateau › Positions (coordonnées)
+
+Entraînement chronométré (30 s, 1, 2 ou 3 min) sur un échiquier vierge fait maison (`SquareBoard`, sans chessground) :
+un nom de case s'affiche, on touche la bonne case ; chaque erreur retire 3 s (`PENALTY_MS`) et la case reste la même.
+Saisie au clavier possible (`typedSquare`). Les manches terminées sont enregistrées (table Dexie `drills`, incluse
+dans l'export) et alimentent le bloc « Vision de l'échiquier » de l'onglet Stats (records, précision, progression,
+cases les plus ratées) ; elles ne touchent ni la rétention ni la série des révisions de cartes. L'option « Insister sur
+mes cases difficiles » pondère le tirage selon les ratés passés (`weightsFromStats`).

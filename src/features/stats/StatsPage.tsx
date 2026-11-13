@@ -3,6 +3,7 @@ import { State } from 'ts-fsrs';
 import { Flame } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { db, type ReviewLog } from '../../db/db';
+import { VisionStats } from './VisionStats';
 import { computeStreak, dayKey, heatLevel, heatmap, retentionSince, reviewsPerDay, weeklyRetention } from '../../lib/stats';
 
 function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
@@ -117,6 +118,8 @@ export function StatsPage() {
         <p className="mb-3 text-sm text-muted">Part des cartes « à revoir » réussies chaque semaine (la ligne pointillée marque 90 %).</p>
         <RetentionChart points={data.retention} />
       </Card>
+
+      <VisionStats />
     </div>
   );
 }

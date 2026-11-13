@@ -121,7 +121,7 @@ export function TutoPage({ onGo }: { onGo: (t: TabId) => void }) {
         <Go tab="review" onGo={onGo}>Ouvrir Réviser</Go>
       </Section>
 
-      <Section title="Plateau : jouer librement ou contre un bot">
+      <Section title="Plateau : jouer, affronter un bot, retrouver les cases">
         <Ul>
           <li><Term>Deux côtés</Term> : tu joues les blancs et les noirs. Boutons Retourner, Annuler et Reset.</li>
           <li>
@@ -129,6 +129,11 @@ export function TutoPage({ onGo }: { onGo: (t: TabId) => void }) {
             <Term>approximatifs</Term> : le bot est Stockfish avec une force réduite.
           </li>
           <li>Pendant la partie : « Annuler mon coup » et « Abandonner ». À la fin, « Enregistrer dans mes parties » te permet de l’analyser ensuite comme les autres.</li>
+          <li>
+            <Term>Positions</Term> : un entraînement pour connaître l’échiquier par cœur. Un nom de case s’affiche (par exemple <Term>F7</Term>) et tu touches la bonne case sur un échiquier vierge.
+            Choisis la durée (30 s, 1, 2 ou 3 minutes), le point de vue (blancs, noirs, au hasard) et, si tu veux, l’aide des coordonnées ou « Insister sur mes cases difficiles ».
+            Chaque <Term>erreur coûte 3 secondes</Term> et tu dois retrouver la même case. À la fin : ton score, ta précision, ton temps moyen et les cases à retravailler. Sur ordinateur, tu peux taper la case (« f » puis « 7 »).
+          </li>
         </Ul>
         <Go tab="board" onGo={onGo}>Ouvrir le Plateau</Go>
       </Section>
@@ -193,6 +198,7 @@ export function TutoPage({ onGo }: { onGo: (t: TabId) => void }) {
           <li><Term>Série</Term> : le nombre de jours de suite où tu as révisé (elle reste vivante tant que tu n’as pas raté un jour entier).</li>
           <li><Term>Heatmap</Term> : une case par jour sur 18 semaines ; plus elle est foncée, plus tu as révisé.</li>
           <li><Term>Rétention</Term> : la part des cartes « à revoir » que tu réussis. Viser environ 90 % est idéal.</li>
+          <li><Term>Vision de l’échiquier</Term> : les résultats de l’entraînement « Positions » (records par durée, précision, progression, cases les plus ratées). Ils sont séparés des révisions de cartes pour ne pas fausser ta rétention ni ta série.</li>
         </Ul>
         <Go tab="stats" onGo={onGo}>Ouvrir Stats</Go>
       </Section>
@@ -204,7 +210,7 @@ export function TutoPage({ onGo }: { onGo: (t: TabId) => void }) {
         </p>
         <Ul>
           <li><Term>Protéger mes données</Term> demande au navigateur de ne pas les effacer quand l’espace manque (sur iPhone, un site non installé peut être purgé après environ une semaine sans visite : installe l’app).</li>
-          <li><Term>Exporter</Term> crée un fichier de sauvegarde ; <Term>Partager</Term> (mobile) l’envoie vers Drive, iCloud ou une messagerie ; <Term>Importer</Term> le restaure.</li>
+          <li><Term>Exporter</Term> crée un fichier de sauvegarde (sur téléphone, il arrive dans « Fichiers » ou « Téléchargements ») ; <Term>Importer</Term> le restaure.</li>
           <li><Term>Sauvegarde automatique</Term> (Chrome ou Edge sur ordinateur) : choisis un dossier, de préférence synchronisé (OneDrive, Dropbox, Drive) ; l’app y écrit une sauvegarde par jour et garde les 7 dernières.</li>
           <li>Un <Term>rappel</Term> s’affiche si tu n’as pas sauvegardé depuis une semaine.</li>
         </Ul>

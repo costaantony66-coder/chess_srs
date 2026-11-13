@@ -91,3 +91,14 @@ body {
 @media (prefers-reduced-motion: reduce) {
   *, ::before, ::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* Coordonnées de l'échiquier d'entraînement (Plateau › Positions) */
+.sq-coord {
+  position: absolute;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.95), 0 0 2px rgba(0, 0, 0, 0.95), 0 0 4px rgba(0, 0, 0, 0.6);
+}

@@ -1,6 +1,6 @@
 import { markBackupDone } from '../lib/backupReminder';
 import { legacyDeck } from '../lib/decks';
-import { db, type Game, type RepNode, type Repertoire, type ReviewLog, type StoredCard } from './db';
+import { db, type DrillRun, type Game, type RepNode, type Repertoire, type ReviewLog, type StoredCard } from './db';
 
 interface BackupFile {
   app: 'chess-srs';
@@ -11,16 +11,18 @@ interface BackupFile {
   repertoires?: Repertoire[];
   repnodes?: RepNode[];
   games?: Game[];
+  drills?: DrillRun[];
 }
 
 /** Contenu complet de la sauvegarde (cartes, révisions, répertoires, parties…) au format JSON. */
 export async function buildBackup(): Promise<{ json: string; filename: string }> {
-  const [cards, reviews, repertoires, repnodes, games] = await Promise.all([
+  const [cards, reviews, repertoires, repnodes, games, drills] = await Promise.all([
     db.cards.toArray(),
     db.reviews.toArray(),
     db.repertoires.toArray(),
     db.repnodes.toArray(),
     db.games.toArray(),
+    db.drills.toArray(),
   ]);
   const file: BackupFile = {
     app: 'chess-srs',
@@ -31,6 +33,7 @@ export async function buildBackup(): Promise<{ json: string; filename: string }>
     repertoires,
     repnodes,
     games,
+    drills,
   };
   return { json: JSON.stringify(file), filename: `chess-srs-${new Date().toISOString().slice(0, 10)}.json` };
 }
@@ -52,20 +55,6 @@ export async function exportData() {
   markBackupDone();
 }
 
-/** Partage la sauvegarde via la feuille de partage du téléphone (Drive, iCloud, mail…). */
-export async function shareBackup(): Promise<'shared' | 'cancelled' | 'unsupported'> {
-  const { json, filename } = await buildBackup();
-  const file = new File([json], filename, { type: 'application/json' });
-  if (!navigator.canShare?.({ files: [file] })) return 'unsupported';
-  try {
-    await navigator.share({ files: [file], title: 'Sauvegarde Chess SRS' });
-    markBackupDone();
-    return 'shared';
-  } catch (e) {
-    return e instanceof DOMException && e.name === 'AbortError' ? 'cancelled' : 'unsupported';
-  }
-}
-
 /** Fusionne une sauvegarde : les cartes de même id sont remplacées. Retourne le nombre de cartes importées. */
 export async function importData(file: File): Promise<number> {
   const data = JSON.parse(await file.text()) as BackupFile;
@@ -81,12 +70,13 @@ export async function importData(file: File): Promise<number> {
       last_review: c.fsrs.last_review ? new Date(c.fsrs.last_review) : undefined,
     },
   }));
-  await db.transaction('rw', db.cards, db.reviews, db.repertoires, db.repnodes, db.games, async () => {
+  await db.transaction('rw', [db.cards, db.reviews, db.repertoires, db.repnodes, db.games, db.drills], async () => {
     await db.cards.bulkPut(cards);
     await db.reviews.bulkPut(data.reviews);
     if (data.repertoires) await db.repertoires.bulkPut(data.repertoires);
     if (data.repnodes) await db.repnodes.bulkPut(data.repnodes);
     if (data.games) await db.games.bulkPut(data.games);
+    if (data.drills) await db.drills.bulkPut(data.drills);
   });
   return cards.length;
 }
