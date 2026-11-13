@@ -109,6 +109,24 @@ export interface Game {
   analysis?: GameAnalysis;
 }
 
+/** Une manche d'entraînement aux coordonnées (Plateau › Positions). */
+export interface DrillRun {
+  id?: number;
+  ts: number;
+  kind: 'coords';
+  durationSec: number;
+  orientation: 'white' | 'black';
+  /** Les coordonnées étaient affichées sur l'échiquier (aide). */
+  aid: boolean;
+  correct: number;
+  errors: number;
+  /** Temps moyen par bonne réponse (ms). */
+  avgMs: number;
+  /** Réussites et ratés par case à trouver (ex. { f7: 3 }). */
+  ok: Record<string, number>;
+  ko: Record<string, number>;
+}
+
 /** Réglages techniques locaux (ex. dossier de sauvegarde automatique). Non exporté. */
 export interface MetaRow {
   key: string;
@@ -134,6 +152,7 @@ export class ChessDB extends Dexie {
   repnodes!: Table<RepNode, string>;
   games!: Table<Game, string>;
   meta!: Table<MetaRow, string>;
+  drills!: Table<DrillRun, number>;
 
   constructor(name = 'chess-srs') {
     super(name);
@@ -203,6 +222,16 @@ export class ChessDB extends Dexie {
       repnodes: 'id, repId, [repId+parentId]',
       games: 'id, source, importedAt',
       meta: 'key',
+    });
+    // v8 : manches d'entraînement aux coordonnées
+    this.version(8).stores({
+      cards: 'id, type, due, state, createdAt, rating, repId, gameId, deck, *tags',
+      reviews: '++id, cardId, ts',
+      repertoires: 'id, createdAt',
+      repnodes: 'id, repId, [repId+parentId]',
+      games: 'id, source, importedAt',
+      meta: 'key',
+      drills: '++id, ts, kind',
     });
   }
 }
